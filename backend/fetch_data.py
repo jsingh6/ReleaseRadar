@@ -88,7 +88,7 @@ def fetch_github_issues(owner: str, repo: str, labels: list[str], max_issues: in
             time.sleep(0.3)  # stay well under GitHub rate limits
 
         issues.append({
-            "id": f"GH-{owner[:2].upper()}-{item['number']}",   # e.g. GH-FL-1234
+            "id": f"GH-{'RN' if repo == 'react-native' else owner[:2].upper()}-{item['number']}",   # e.g. GH-FL-1234, GH-RN-1234
             "github_number": item["number"],
             "summary": item["title"],
             "description": (item.get("body") or "")[:800],   # cap at 800 chars
