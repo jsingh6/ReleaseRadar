@@ -231,8 +231,8 @@ async def query(req: QueryRequest):
     2. Assemble: build context string from top-k chunks
     3. Generate: call Claude with context + question
     """
-if not _collection:
-    raise HTTPException(status_code=503, detail="Vector store not ready. Run fetch_data.py first.")
+    if not _collection:
+        raise HTTPException(status_code=503, detail="Vector store not ready. Run fetch_data.py first.")
 
     # ── Step 1: Retrieve ────────────────────────────────────────────────────
     # similarity_search_with_score embeds the query and finds nearest neighbors.
