@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
 import anthropic
 
 load_dotenv()
@@ -29,10 +30,8 @@ CHROMA_DIR = "/tmp/releaseradar_chroma"
 # LangChain wraps sentence-transformers + chromadb behind a unified interface.
 # You call from_texts() and similarity_search_with_score() — it handles the rest.
 # ──────────────────────────────────────────────────────────────────────────────
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
-
+from sentence_transformers import SentenceTransformer
+import chromadb
 # ──────────────────────────────────────────────────────────────────────────────
 # APPROACH B — WITHOUT LANGCHAIN (equivalent raw code, not used but shown)
 # Uncomment this block and replace the LangChain calls below to switch modes.
@@ -94,8 +93,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_vectorstore: Optional[Chroma] = None
-
+_model = None
+_collection = None
 
 # ── Text conversion ──────────────────────────────────────────────────────────
 # This is the most important tuning surface in a RAG system.
@@ -135,96 +134,58 @@ def release_to_text(release: dict) -> str:
 
 # ── Vector store build ───────────────────────────────────────────────────────
 
+_model: SentenceTransformer = None
+_collection = None
+
 def build_vectorstore():
-    """
-    Loads data files, converts to text, chunks, embeds, stores in ChromaDB.
-    
-    This runs ONCE at startup. The _vectorstore global is reused for all requests.
-    
-    Chunking explained:
-    - chunk_size=600: max characters per chunk (~150 tokens for MiniLM)
-    - chunk_overlap=80: last 80 chars of chunk N appear at start of chunk N+1
-    - Why overlap? A sentence split across a boundary keeps context in both chunks
-    """
-    global _vectorstore
+    global _model, _collection
 
     issues_path = DATA_DIR / "github_issues.json"
     releases_path = DATA_DIR / "release_notes.json"
 
-    if not issues_path.exists():
-        print("⚠️  data/github_issues.json not found. Run: python fetch_data.py")
-        issues = []
-    else:
-        issues = json.loads(issues_path.read_text())
+    issues = json.loads(issues_path.read_text()) if issues_path.exists() else []
+    releases = json.loads(releases_path.read_text()) if releases_path.exists() else []
 
-    if not releases_path.exists():
-        print("⚠️  data/release_notes.json not found. Run: python fetch_data.py")
-        releases = []
-    else:
-        releases = json.loads(releases_path.read_text())
-
-    raw_texts = []
+    texts = []
     metadatas = []
 
     for issue in issues:
-        raw_texts.append(issue_to_text(issue))
+        texts.append(issue_to_text(issue))
         metadatas.append({
-            "source": "github_issues",
-            "id": issue["id"],
-            "component": issue["component"],
-            "platform": issue["platform"],
-            "priority": issue["priority"],
-            "status": issue["status"],
-            "repo": issue["repo"],
-            "version": "",
+            "source": "github_issues", "id": issue["id"],
+            "component": issue["component"], "platform": issue["platform"],
+            "priority": issue["priority"], "status": issue["status"],
+            "repo": issue["repo"], "version": "",
         })
 
     for release in releases:
-        raw_texts.append(release_to_text(release))
+        texts.append(release_to_text(release))
         metadatas.append({
-            "source": "release_notes",
-            "id": release["version"],
-            "component": "Release",
-            "platform": release["platform"],
-            "priority": "info",
-            "status": "Released",
-            "repo": release.get("repo", ""),
-            "version": release["version"],
+            "source": "release_notes", "id": release["version"],
+            "component": "Release", "platform": release["platform"],
+            "priority": "info", "status": "Released",
+            "repo": release.get("repo", ""), "version": release["version"],
         })
 
-    if not raw_texts:
-        print("⚠️  No data to index. Starting with empty vector store.")
+    if not texts:
+        print("⚠️  No data to index.")
         return
 
-    # ── WITH LANGCHAIN ──────────────────────────────────────────────────────
-    # RecursiveCharacterTextSplitter tries to split on paragraph breaks (\n\n),
-    # then newlines, then sentences, then words — in that order.
-    # This keeps semantic units together better than hard character splits.
-    splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=80)
+    print("🧠 Loading embedding model...")
+    _model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    chunks = []
-    chunk_metas = []
-    for text, meta in zip(raw_texts, metadatas):
-        splits = splitter.split_text(text)
-        chunks.extend(splits)
-        chunk_metas.extend([meta] * len(splits))
+    print(f"💾 Embedding {len(texts)} documents...")
+    vectors = _model.encode(texts, show_progress_bar=False)
 
-    print(f"📦 {len(raw_texts)} documents → {len(chunks)} chunks after splitting")
-
-    # Load embedding model (downloads ~90MB on first run, then cached)
-    print("🧠 Loading embedding model all-MiniLM-L6-v2...")
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-    # from_texts() does: embed all chunks → create ChromaDB collection → store
-    print(f"💾 Embedding {len(chunks)} chunks into ChromaDB...")
-    _vectorstore = Chroma.from_texts(
-        texts=chunks,
-        embedding=embeddings,
-        metadatas=chunk_metas,
-        persist_directory=CHROMA_DIR,
+    client = chromadb.Client()
+    _collection = client.get_or_create_collection("releaseradar")
+    _collection.add(
+        ids=[str(i) for i in range(len(texts))],
+        documents=texts,
+        embeddings=vectors.tolist(),
+        metadatas=metadatas,
     )
-    print(f"✅ Vector store ready: {len(chunks)} chunks indexed")
-    # ── END WITH LANGCHAIN ───────────────────────────────────────────────────
+    print(f"✅ Vector store ready: {len(texts)} documents indexed")
 
 
 @app.on_event("startup")
@@ -275,18 +236,24 @@ async def query(req: QueryRequest):
     # ── Step 1: Retrieve ────────────────────────────────────────────────────
     # similarity_search_with_score embeds the query and finds nearest neighbors.
     # Returns list of (Document, score) tuples. Lower score = more similar.
-    results = _vectorstore.similarity_search_with_score(req.query, k=req.top_k)
+# ── Step 1: Retrieve ────────────────────────────────────────────────────
+    query_vector = _model.encode([req.query]).tolist()
+    results = _collection.query(
+        query_embeddings=query_vector,
+        n_results=req.top_k,
+        include=["documents", "metadatas", "distances"]
+    )
+    docs = results["documents"][0]
+    metas = results["metadatas"][0]
 
     # ── Step 2: Assemble context ────────────────────────────────────────────
     context_parts = []
     sources = []
     seen_ids = set()
 
-    for doc, score in results:
-        meta = doc.metadata
+    for doc, meta in zip(docs, metas):
         context_parts.append(
-            f"[{meta['source'].upper()} | {meta['id']} | {meta.get('repo', '')} | {meta['platform']}]\n"
-            f"{doc.page_content}"
+            f"[{meta['source'].upper()} | {meta['id']} | {meta.get('repo', '')} | {meta['platform']}]\n{doc}"
         )
         uid = f"{meta['source']}:{meta['id']}"
         if uid not in seen_ids:
@@ -297,7 +264,7 @@ async def query(req: QueryRequest):
                 component=meta["component"],
                 platform=meta["platform"],
                 repo=meta.get("repo", ""),
-                snippet=doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
+                snippet=doc[:200] + "..." if len(doc) > 200 else doc,
             ))
 
     context = "\n\n---\n\n".join(context_parts)
@@ -348,7 +315,7 @@ async def stats():
     return {
         "issues": {"total": len(issues), "p1": p1, "open": open_count},
         "releases": {"total": len(releases), "latest": releases[-1]["version"] if releases else "N/A"},
-        "vectorstore_ready": _vectorstore is not None,
+        "vectorstore_ready": _collection is not None
     }
 
 
@@ -357,8 +324,7 @@ async def stats():
 @app.get("/health")
 async def health():
     """Always check this first when debugging. If this fails, nothing else will work."""
-    return {"status": "ok", "vectorstore_ready": _vectorstore is not None}
-
+    return {"status": "ok", "vectorstore_ready": _collection is not None}
 
 if __name__ == "__main__":
     import uvicorn
