@@ -270,7 +270,7 @@ def main():
     rn_issues = fetch_github_issues(
         owner="facebook",
         repo="react-native",
-        labels=["Type: Bug"],
+        labels=["Bug"],
         max_issues=25
     )
     all_issues.extend(rn_issues)
