@@ -21,7 +21,8 @@ from pydantic import BaseModel
 import anthropic
 
 load_dotenv()
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+print(f"🔑 ANTHROPIC_API_KEY present: {'yes' if ANTHROPIC_API_KEY else 'NO — MISSING'} (len={len(ANTHROPIC_API_KEY)}, prefix={ANTHROPIC_API_KEY[:10]!r})")
 DATA_DIR = Path(__file__).parent / "data"
 CHROMA_DIR = "/tmp/releaseradar_chroma"
 
