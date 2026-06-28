@@ -1,4 +1,7 @@
-# 🛰️ ReleaseRadar
+# ReleaseRadar
+
+<img width="1280" height="640" alt="ReleaseRadar-thumbnail" src="https://github.com/user-attachments/assets/95adf192-0c59-4ddb-910b-1c0edb21abc8" />
+
 
 AI-powered release intelligence for mobile engineering teams. Ask natural language questions across GitHub Issues and release notes — get precise, cited answers.
 
