@@ -13,6 +13,9 @@ import json
 import os
 import time
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent / "data"
