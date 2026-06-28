@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://releaseradar-production-9651.up.railway.app";
 
 const SUGGESTED_QUERIES = [
   "Which crash issues affected Android?",
