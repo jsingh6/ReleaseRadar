@@ -1,0 +1,86 @@
+[
+  {
+    "version": "RM-2024.1.0",
+    "release_date": "2024-01-15",
+    "platform": "iOS, Android",
+    "repo": "flutter/flutter",
+    "highlights": [
+      "Flutter 3.19 engine upgrade",
+      "Impeller rendering enabled by default on iOS",
+      "Android platform view performance improvements",
+      "Fixed null safety migration crash in legacy plugins"
+    ],
+    "changes": "Major engine upgrade to Flutter 3.19. Impeller GPU rendering enabled by default on iOS, replacing Skia. Android platform view rendering refactored for lower latency. Several null safety violations in legacy plugin interop resolved.",
+    "known_issues": [
+      "Impeller causes blank screen on iPhone 12 mini \u2014 fix in RM-2024.1.1"
+    ]
+  },
+  {
+    "version": "RM-2024.1.1",
+    "release_date": "2024-01-22",
+    "platform": "iOS",
+    "repo": "flutter/flutter",
+    "highlights": [
+      "Impeller blank screen fix for iPhone 12 mini",
+      "Metal shader compilation fix"
+    ],
+    "changes": "Hotfix for Impeller rendering blank screen on iPhone 12 mini and older A14 devices. Metal shader pre-compilation added to resolve first-frame stutter.",
+    "known_issues": []
+  },
+  {
+    "version": "RM-2024.2.0",
+    "release_date": "2024-02-10",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [
+      "React Native 0.73.4",
+      "New Architecture (Fabric) stability improvements",
+      "Hermes engine memory leak fix",
+      "iOS 17 gesture recognizer regression fixed"
+    ],
+    "changes": "React Native 0.73.4 release. New Architecture Fabric renderer improved stability for concurrent mode. Hermes engine patch fixes memory leak in long-running apps. iOS 17 introduced a gesture recognizer conflict with React Native's touch system \u2014 patched in this release.",
+    "known_issues": [
+      "Android back handler broken on Android 14 with predictive back gesture \u2014 tracking in GH-RN-42123"
+    ]
+  },
+  {
+    "version": "RM-2024.2.1",
+    "release_date": "2024-02-20",
+    "platform": "Android",
+    "repo": "facebook/react-native",
+    "highlights": [
+      "Android 14 predictive back gesture fix",
+      "Back handler API now supports predictive animations"
+    ],
+    "changes": "Android 14 introduced predictive back gesture system incompatible with React Native's BackHandler API. This release adds native support for the predictive back gesture, enabling smooth animations on Android 14+.",
+    "known_issues": []
+  },
+  {
+    "version": "RM-2024.3.0",
+    "release_date": "2024-03-05",
+    "platform": "iOS, Android",
+    "repo": "flutter/flutter",
+    "highlights": [
+      "Flutter 3.22 \u2014 Impeller on Android (preview)",
+      "DevTools 2.32",
+      "Web platform rendering improvements",
+      "TextField cursor regression fix"
+    ],
+    "changes": "Impeller GPU renderer enters preview on Android (Vulkan-capable devices). DevTools updated with CPU profiling improvements. TextField cursor position regression from 3.19 resolved \u2014 affected RTL text inputs and autocomplete overlays.",
+    "known_issues": [
+      "Impeller on Android causes ANR on Samsung Galaxy A-series \u2014 tracking in GH-FL-145001"
+    ]
+  },
+  {
+    "version": "RM-2024.3.1",
+    "release_date": "2024-03-15",
+    "platform": "Android",
+    "repo": "flutter/flutter",
+    "highlights": [
+      "Impeller ANR fix for Samsung Galaxy A-series",
+      "Vulkan driver compatibility layer added"
+    ],
+    "changes": "Impeller Vulkan renderer caused ANR on Samsung devices with Mali GPU driver 24.0.x. Added compatibility shim detecting Mali driver version and falling back to OpenGL on affected devices.",
+    "known_issues": []
+  }
+]
