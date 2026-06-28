@@ -25,6 +25,26 @@ if GITHUB_TOKEN:
     HEADERS["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
 
+def fetch_linked_pr_description(owner: str, repo: str, issue_number: int) -> str:
+    """
+    For a closed issue, find the PR that fixed it via the timeline API and return
+    its title + body (capped). Returns empty string if none found.
+    """
+    url = f"https://api.github.com/repos/{owner}/{repo}/issues/{issue_number}/timeline"
+    headers = {**HEADERS, "Accept": "application/vnd.github.mockingbird-preview+json"}
+    response = requests.get(url, headers=headers, params={"per_page": 100})
+    if response.status_code != 200:
+        return ""
+    for event in response.json():
+        if event.get("event") == "cross-referenced":
+            issue_data = event.get("source", {}).get("issue", {})
+            if issue_data.get("pull_request"):
+                title = issue_data.get("title", "")
+                body = (issue_data.get("body") or "")[:600]
+                return f"Fix PR: {title}\n{body}" if body else f"Fix PR: {title}"
+    return ""
+
+
 def fetch_github_issues(owner: str, repo: str, labels: list[str], max_issues: int = 30) -> list[dict]:
     """
     Fetch issues from a public GitHub repo filtered by label.
@@ -62,11 +82,17 @@ def fetch_github_issues(owner: str, repo: str, labels: list[str], max_issues: in
         if "pull_request" in item:
             continue
 
+        fix_description = ""
+        if item["state"] == "closed":
+            fix_description = fetch_linked_pr_description(owner, repo, item["number"])
+            time.sleep(0.3)  # stay well under GitHub rate limits
+
         issues.append({
             "id": f"GH-{owner[:2].upper()}-{item['number']}",   # e.g. GH-FL-1234
             "github_number": item["number"],
             "summary": item["title"],
             "description": (item.get("body") or "")[:800],   # cap at 800 chars
+            "fix_description": fix_description,
             "status": "Done" if item["state"] == "closed" else "Open",
             "priority": _infer_priority(item),
             "component": _infer_component(item, repo),

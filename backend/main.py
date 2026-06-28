@@ -113,12 +113,14 @@ def issue_to_text(issue: dict) -> str:
     """
     labels = ", ".join(issue.get("labels", []))
     resolved = f"Resolved: {issue['resolved']}" if issue.get("resolved") else "Status: Open"
+    fix = issue.get("fix_description", "")
     return (
         f"[ISSUE {issue['id']}] {issue['summary']}\n"
         f"Repo: {issue['repo']} | Component: {issue['component']} | "
         f"Platform: {issue['platform']} | Priority: {issue['priority']} | {resolved}\n"
         f"Labels: {labels}\n"
         f"Description: {issue['description']}"
+        + (f"\nFix: {fix}" if fix else "")
     )
 
 
