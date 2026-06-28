@@ -1,3 +1,5 @@
+# updated 2026-06-28
+
 fastapi==0.115.0
 uvicorn[standard]==0.29.0
 anthropic==0.25.0
