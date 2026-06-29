@@ -33,6 +33,9 @@ if POSTHOG_API_KEY:
 else:
     ph = Posthog(project_api_key="disabled", disabled=True)
     print("📊 PostHog disabled (no POSTHOG_API_KEY)")
+
+POSTHOG_PERSONAL_KEY = os.getenv("POSTHOG_PERSONAL_API_KEY", "")
+_posthog_project_id: str | None = None  # cached after first discovery
 DATA_DIR = Path(__file__).parent / "data"
 CHROMA_DIR = "/tmp/releaseradar_chroma"
 
@@ -362,25 +365,78 @@ async def stats():
 
 # ── Analytics endpoint ───────────────────────────────────────────────────────
 
+async def _fetch_posthog_events() -> list[dict]:
+    """Fetch all query_answered events from PostHog. Caches the project ID."""
+    global _posthog_project_id
+    import httpx
+    headers = {"Authorization": f"Bearer {POSTHOG_PERSONAL_KEY}"}
+    async with httpx.AsyncClient(timeout=10) as client:
+        if not _posthog_project_id:
+            r = await client.get("https://us.posthog.com/api/projects/", headers=headers)
+            r.raise_for_status()
+            _posthog_project_id = str(r.json()["results"][0]["id"])
+            print(f"📊 PostHog project ID discovered: {_posthog_project_id}")
+
+        all_events = []
+        url = f"https://us.posthog.com/api/projects/{_posthog_project_id}/events/"
+        params = {"event": "query_answered", "limit": 500}
+        while url:
+            r = await client.get(url, headers=headers, params=params)
+            r.raise_for_status()
+            data = r.json()
+            all_events.extend(data.get("results", []))
+            url = data.get("next")   # follow pagination
+            params = {}              # next URL already has params
+        return all_events
+
+
 @app.get("/analytics")
 async def analytics():
-    from datetime import datetime, timezone, date
+    from datetime import date
+    from collections import Counter
+
+    if POSTHOG_PERSONAL_KEY:
+        try:
+            events = await _fetch_posthog_events()
+            today = date.today().isoformat()
+            queries_today = sum(1 for e in events if e.get("timestamp", "").startswith(today))
+
+            props = [e.get("properties", {}) for e in events]
+            all_ids = [sid for p in props for sid in p.get("source_ids", [])]
+            most_cited = Counter(all_ids).most_common(1)[0][0] if all_ids else None
+
+            all_platforms = [p2 for p in props for p2 in p.get("platforms", [])]
+            top_platform = Counter(all_platforms).most_common(1)[0][0] if all_platforms else None
+
+            recent = sorted(events, key=lambda e: e.get("timestamp", ""), reverse=True)[:5]
+            return {
+                "total_queries": len(events),
+                "queries_today": queries_today,
+                "most_cited_issue": most_cited,
+                "top_platform": top_platform,
+                "recent_queries": [
+                    {
+                        "query": e["properties"].get("query", ""),
+                        "timestamp": e["timestamp"],
+                        "sources_count": e["properties"].get("sources_count", 0),
+                    }
+                    for e in recent
+                ],
+            }
+        except Exception as exc:
+            print(f"⚠️  PostHog analytics fetch failed: {exc} — falling back to local log")
+
+    # Fallback: local query_log.json (used when no personal key or PostHog unreachable)
     from collections import Counter
     log_path = DATA_DIR / "query_log.json"
     log = json.loads(log_path.read_text()) if log_path.exists() else []
-
     today = date.today().isoformat()
     queries_today = sum(1 for e in log if e.get("timestamp", "").startswith(today))
-
     all_ids = [sid for e in log for sid in e.get("source_ids", [])]
     most_cited = Counter(all_ids).most_common(1)[0][0] if all_ids else None
-
     all_platforms = [p for e in log for p in e.get("platforms", [])]
-    platform_counts = Counter(all_platforms)
-    top_platform = platform_counts.most_common(1)[0][0] if platform_counts else None
-
+    top_platform = Counter(all_platforms).most_common(1)[0][0] if all_platforms else None
     recent = sorted(log, key=lambda e: e.get("timestamp", ""), reverse=True)[:5]
-
     return {
         "total_queries": len(log),
         "queries_today": queries_today,
