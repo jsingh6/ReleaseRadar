@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import anthropic
-import posthog
+from posthog import Posthog
 
 load_dotenv()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
@@ -27,11 +27,10 @@ print(f"🔑 ANTHROPIC_API_KEY present: {'yes' if ANTHROPIC_API_KEY else 'NO —
 
 POSTHOG_API_KEY = os.getenv("POSTHOG_API_KEY", "")
 if POSTHOG_API_KEY:
-    posthog.project_api_key = POSTHOG_API_KEY
-    posthog.host = "https://us.i.posthog.com"
+    ph = Posthog(project_api_key=POSTHOG_API_KEY, host="https://us.i.posthog.com")
     print("📊 PostHog analytics enabled")
 else:
-    posthog.disabled = True
+    ph = Posthog(project_api_key="disabled", disabled=True)
     print("📊 PostHog disabled (no POSTHOG_API_KEY)")
 DATA_DIR = Path(__file__).parent / "data"
 CHROMA_DIR = "/tmp/releaseradar_chroma"
@@ -310,7 +309,7 @@ Rules:
     )
     answer = message.content[0].text
 
-    posthog.capture(
+    ph.capture(
         distinct_id="releaseradar-user",
         event="query_answered",
         properties={
