@@ -71,11 +71,16 @@ export default function ReleaseRadar() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
   const [history, setHistory] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/stats`)
       .then(r => r.json())
       .then(setStats)
+      .catch(() => {});
+    fetch(`${API_BASE}/analytics`)
+      .then(r => r.json())
+      .then(d => { if (d?.total_queries > 0) setAnalytics(d); })
       .catch(() => {});
   }, []);
 
@@ -153,6 +158,13 @@ export default function ReleaseRadar() {
               color: ["#A5B4FC", "#86EFAC"][i]
             }}>{s}</span>
           ))}
+          {analytics?.total_queries > 0 && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: "3px 8px",
+              borderRadius: 4, fontFamily: "monospace",
+              background: "#1C1917", color: "#FCD34D"
+            }}>{analytics.total_queries} QUERIES</span>
+          )}
         </div>
       </div>
 
@@ -188,7 +200,7 @@ export default function ReleaseRadar() {
           </div>
         )}
 
-        <AnalyticsSection apiBase={API_BASE} />
+        {analytics && <AnalyticsSection data={analytics} />}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20 }}>
 
