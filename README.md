@@ -8,7 +8,8 @@ AI-powered release intelligence for mobile engineering teams. Ask natural langua
 
 ---
 
-[![ReleaseRadar Demo](release_radar_screenshot.png)](https://release-radar-sdk.vercel.app/)
+[![ReleaseRadar Demo]<img width="1129" height="1318" alt="release_radar_screenshot" src="https://github.com/user-attachments/assets/557291b1-8185-422f-8e9d-3fad8770c53e" />
+](https://release-radar-sdk.vercel.app/)
 
 ## Setup (step by step)
 
