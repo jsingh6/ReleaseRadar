@@ -96,21 +96,27 @@ export default function ReleaseRadar() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let answer = "";
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split("\n")) {
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop(); // last part may be incomplete
+        for (const part of parts) {
+          const line = part.trim();
           if (!line.startsWith("data: ")) continue;
-          const event = JSON.parse(line.slice(6));
-          if (event.type === "token") {
-            answer += event.text;
-            setLoading(false);
-            setResult({ answer, sources: [], query: text });
-          } else if (event.type === "done") {
-            setResult({ answer, sources: event.sources, query: event.query });
-          }
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "token") {
+              answer += event.text;
+              setLoading(false);
+              setResult({ answer, sources: [], query: text });
+            } else if (event.type === "done") {
+              setResult({ answer, sources: event.sources, query: event.query });
+            }
+          } catch (_) {}
         }
       }
       setHistory(prev => [{ query: text }, ...prev.slice(0, 4)]);
