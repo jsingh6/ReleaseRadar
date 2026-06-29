@@ -35,7 +35,7 @@ else:
     print("📊 PostHog disabled (no POSTHOG_API_KEY)")
 
 POSTHOG_PERSONAL_KEY = os.getenv("POSTHOG_PERSONAL_API_KEY", "")
-_posthog_project_id: str | None = None  # cached after first discovery
+_posthog_project_id: str | None = os.getenv("POSTHOG_PROJECT_ID", None)  # set in Railway env
 DATA_DIR = Path(__file__).parent / "data"
 CHROMA_DIR = "/tmp/releaseradar_chroma"
 
