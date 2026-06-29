@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import AnalyticsSection from "./AnalyticsSection";
 
 const API_BASE = "https://releaseradar-production-9651.up.railway.app";
@@ -241,7 +242,7 @@ export default function ReleaseRadar() {
                     AI ANSWER
                   </div>
                   <div style={{ fontSize: 14, color: "#111827", lineHeight: 1.7 }}>
-  <ReactMarkdown>{result.answer}</ReactMarkdown>
+  <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
 </div>
                 </div>
 

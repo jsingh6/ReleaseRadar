@@ -2,10 +2,9 @@
 
 <img width="1280" height="640" alt="ReleaseRadar-thumbnail" src="https://github.com/user-attachments/assets/95adf192-0c59-4ddb-910b-1c0edb21abc8" />
 
+AI-powered release intelligence for mobile engineering teams. Ask natural language questions across GitHub Issues and release notes — get precise, cited answers with links to the fixes.
 
-AI-powered release intelligence for mobile engineering teams. Ask natural language questions across GitHub Issues and release notes — get precise, cited answers.
-
-**Data sources:** Real GitHub Issues from `flutter/flutter` and `facebook/react-native` + fixture release notes (RM-prefixed).
+**Data sources:** Real GitHub Issues from `flutter/flutter` and `facebook/react-native` (crash, regression, bug labels) + fixture release notes (RM-prefixed). Closed issues include linked PR descriptions so Claude can explain how issues were fixed.
 
 ---
 
@@ -32,7 +31,7 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env and add your Anthropic API key
+# Edit .env and add your keys
 ```
 
 `.env.example`:
@@ -41,15 +40,17 @@ ANTHROPIC_API_KEY=your_key_here
 GITHUB_TOKEN=optional_for_higher_rate_limits
 ```
 
+> **Note:** `GITHUB_TOKEN` is strongly recommended. Without it you hit GitHub's 60 req/hour unauthenticated limit quickly when fetching issues + linked PRs.
+
 ### 4. Fetch real data from GitHub
 
 ```bash
 python fetch_data.py
 ```
 
-This pulls crash and regression issues from `flutter/flutter` and `facebook/react-native` via the GitHub Issues API (no auth needed for public repos). Saves to `data/github_issues.json`.
+This pulls crash and regression issues from `flutter/flutter` and `facebook/react-native` via the GitHub Issues API. For each **closed** issue it also fetches the linked PR description so Claude can answer "how was this fixed?" questions with real data.
 
-If rate limited: add `GITHUB_TOKEN` to `.env` and rerun.
+Saves to `data/github_issues.json` and `data/release_notes.json`.
 
 ### 5. Start the backend
 
@@ -61,10 +62,9 @@ python main.py
 
 **What happens on startup:**
 1. Loads `data/github_issues.json` + `data/release_notes.json`
-2. Converts each issue/release to a text string
-3. Chunks with LangChain `RecursiveCharacterTextSplitter` (600 chars, 80 overlap)
-4. Embeds with `all-MiniLM-L6-v2` (downloads ~90MB on first run)
-5. Stores vectors in ChromaDB at `/tmp/releaseradar_chroma`
+2. Converts each issue/release to a text string (includes fix PR descriptions for closed issues)
+3. Embeds with `all-MiniLM-L6-v2` (downloads ~90MB on first run)
+4. Stores vectors in ChromaDB at `/tmp/releaseradar_chroma`
 
 ### 6. Test it immediately
 
@@ -74,6 +74,9 @@ curl http://localhost:8000/health
 
 # Stats
 curl http://localhost:8000/stats
+
+# Analytics
+curl http://localhost:8000/analytics
 
 # Ask a question
 curl -X POST http://localhost:8000/query \
@@ -96,51 +99,72 @@ npm run dev
 
 ```
 GitHub Issues API (flutter/flutter, facebook/react-native)
+  + Linked PR descriptions (for closed issues)
   + Release Notes (RM-2024.x fixtures)
         ↓ fetch_data.py
   JSON files in backend/data/
         ↓ main.py startup
-  RecursiveCharacterTextSplitter (LangChain)
-        ↓
   all-MiniLM-L6-v2 Embeddings (HuggingFace, 384-dim vectors)
         ↓
-  ChromaDB (local vector store)
-        ↓ similarity_search(query, k=6)
+  ChromaDB (local vector store, 80 documents)
+        ↓ similarity search (top-k=6)
   FastAPI /query endpoint
         ↓
   Claude claude-sonnet-4-6 (Anthropic) — grounded generation
         ↓
-  React UI
+  React UI + Analytics Section (/analytics endpoint)
 ```
 
-### With vs Without LangChain
+### API Endpoints
 
-`main.py` includes commented-out code showing the equivalent implementation without LangChain (raw `sentence_transformers` + `chromadb`). LangChain saves ~50 lines of glue code for chunking, embedding, and vector store management.
+| Endpoint | Method | Description |
+|---|---|---|
+| `/health` | GET | Liveness check |
+| `/stats` | GET | Issue counts, release counts, vector store status |
+| `/query` | POST | RAG query — returns answer + cited sources |
+| `/analytics` | GET | Usage stats — total queries, today's count, most cited issue, top platform, recent queries |
+
+---
+
+## Issue ID conventions
+
+| Prefix | Repo |
+|---|---|
+| `GH-FL-` | flutter/flutter |
+| `GH-RN-` | facebook/react-native |
+| `RM-` | Release notes (fixture data) |
 
 ---
 
 ## Sample queries
 
-- "Which crash issues affected Android and have been fixed?"
-- "What regressions were introduced in Flutter 3.19?"
-- "Did any issues appear in both flutter and react-native releases?"
-- "What are the open P1 issues in the Navigation component?"
-- "Which release introduced Impeller and what problems followed?"
+**Fix-specific**
+- "How was the Flutter Impeller ANR on Samsung Galaxy fixed?"
+- "What was the root cause of the iOS 17 gesture recognizer issue in React Native?"
+- "Show me all Flutter crash fixes from 2024 with their fix approach"
+
+**Cross-release regression tracking**
+- "Were there any regressions introduced in Flutter 3.22 that required a hotfix?"
+- "What known issues from RM-2024.3.0 were fixed in RM-2024.3.1?"
+
+**Platform-specific**
+- "What Android-only crashes have been reported in Flutter?"
+- "Are there any iOS 17 specific bugs across Flutter or React Native?"
+
+**Release quality / upgrade decisions**
+- "Is it safe to upgrade to RM-2024.3.0 if my users are on Samsung Galaxy devices?"
+- "Which release had the most critical fixes — RM-2024.2.0 or RM-2024.3.0?"
 
 ---
 
-## Extending with real Crashlytics data
+## Deployment
 
-```python
-# Add to fetch_data.py
-from google.oauth2 import service_account
-import googleapiclient.discovery
+**Backend** — Railway. Set these environment variables:
+- `ANTHROPIC_API_KEY` — required
+- `GITHUB_TOKEN` — recommended (higher GitHub rate limits)
 
-# Requires Firebase project credentials
-creds = service_account.Credentials.from_service_account_file("firebase-sa.json")
-service = googleapiclient.discovery.build("firebaseappdistribution", "v1", credentials=creds)
-# Fetch crash issues and add to all_issues list
-```
+**Frontend** — Vercel. Set:
+- `VITE_API_BASE` — Railway backend URL (if not hardcoded)
 
 ---
 
