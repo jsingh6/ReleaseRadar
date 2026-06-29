@@ -372,7 +372,7 @@ def _fetch_posthog_events_sync() -> list[dict]:
     headers = {"Authorization": f"Bearer {POSTHOG_PERSONAL_KEY}"}
 
     if not _posthog_project_id:
-        r = req.get("https://us.posthog.com/api/projects/", headers=headers, timeout=10)
+        r = req.get("https://us.posthog.com/api/projects/", headers=headers, timeout=30)
         r.raise_for_status()
         _posthog_project_id = str(r.json()["results"][0]["id"])
         print(f"📊 PostHog project ID discovered: {_posthog_project_id}")
@@ -381,7 +381,7 @@ def _fetch_posthog_events_sync() -> list[dict]:
     url = f"https://us.posthog.com/api/projects/{_posthog_project_id}/events/"
     params: dict = {"event": "query_answered", "limit": 500}
     while url:
-        r = req.get(url, headers=headers, params=params, timeout=10)
+        r = req.get(url, headers=headers, params=params, timeout=30)
         r.raise_for_status()
         data = r.json()
         all_events.extend(data.get("results", []))
