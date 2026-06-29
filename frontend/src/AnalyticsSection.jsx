@@ -159,6 +159,7 @@ export default function AnalyticsSection({ data: dataProp, apiBase = "" }) {
   const [data, setData] = useState(dataProp || null);
   const [loading, setLoading] = useState(!dataProp);
   const [error, setError] = useState(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (dataProp) return; // data supplied directly — skip fetch
@@ -231,11 +232,21 @@ export default function AnalyticsSection({ data: dataProp, apiBase = "" }) {
           </div>
 
           <div style={styles.listCard}>
-            <div style={styles.listHeader}>
+            <div
+              style={{ ...styles.listHeader, cursor: "pointer", userSelect: "none" }}
+              onClick={() => setCollapsed(c => !c)}
+            >
               <span style={styles.listLabel}>RECENT QUERIES</span>
-              <span style={styles.listHint}>last 5 questions</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={styles.listHint}>last 5 questions</span>
+                <span style={{
+                  fontSize: 12, color: "#94a3b8", lineHeight: 1,
+                  transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease", display: "inline-block"
+                }}>▾</span>
+              </div>
             </div>
-            {recent.map((q, i) => (
+            {!collapsed && recent.map((q, i) => (
               <div key={i} style={styles.row}>
                 <div style={styles.rowMain}>
                   <span style={styles.rowQuery}>{q.query}</span>
