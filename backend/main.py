@@ -365,29 +365,29 @@ async def stats():
 
 # ── Analytics endpoint ───────────────────────────────────────────────────────
 
-async def _fetch_posthog_events() -> list[dict]:
-    """Fetch all query_answered events from PostHog. Caches the project ID."""
+def _fetch_posthog_events_sync() -> list[dict]:
+    """Fetch all query_answered events from PostHog using requests (sync)."""
     global _posthog_project_id
-    import httpx
+    import requests as req
     headers = {"Authorization": f"Bearer {POSTHOG_PERSONAL_KEY}"}
-    async with httpx.AsyncClient(timeout=10) as client:
-        if not _posthog_project_id:
-            r = await client.get("https://us.posthog.com/api/projects/", headers=headers)
-            r.raise_for_status()
-            _posthog_project_id = str(r.json()["results"][0]["id"])
-            print(f"📊 PostHog project ID discovered: {_posthog_project_id}")
 
-        all_events = []
-        url = f"https://us.posthog.com/api/projects/{_posthog_project_id}/events/"
-        params = {"event": "query_answered", "limit": 500}
-        while url:
-            r = await client.get(url, headers=headers, params=params)
-            r.raise_for_status()
-            data = r.json()
-            all_events.extend(data.get("results", []))
-            url = data.get("next")   # follow pagination
-            params = {}              # next URL already has params
-        return all_events
+    if not _posthog_project_id:
+        r = req.get("https://us.posthog.com/api/projects/", headers=headers, timeout=10)
+        r.raise_for_status()
+        _posthog_project_id = str(r.json()["results"][0]["id"])
+        print(f"📊 PostHog project ID discovered: {_posthog_project_id}")
+
+    all_events = []
+    url = f"https://us.posthog.com/api/projects/{_posthog_project_id}/events/"
+    params: dict = {"event": "query_answered", "limit": 500}
+    while url:
+        r = req.get(url, headers=headers, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        all_events.extend(data.get("results", []))
+        url = data.get("next")
+        params = {}
+    return all_events
 
 
 @app.get("/analytics")
@@ -397,7 +397,8 @@ async def analytics():
 
     if POSTHOG_PERSONAL_KEY:
         try:
-            events = await _fetch_posthog_events()
+            from asyncio import get_event_loop
+            events = await get_event_loop().run_in_executor(None, _fetch_posthog_events_sync)
             today = date.today().isoformat()
             queries_today = sum(1 for e in events if e.get("timestamp", "").startswith(today))
 
@@ -424,7 +425,7 @@ async def analytics():
                 ],
             }
         except Exception as exc:
-            print(f"⚠️  PostHog analytics fetch failed: {exc} — falling back to local log")
+            print(f"⚠️  PostHog analytics fetch failed: {type(exc).__name__}: {exc!r} — falling back to local log")
 
     # Fallback: local query_log.json (used when no personal key or PostHog unreachable)
     from collections import Counter
