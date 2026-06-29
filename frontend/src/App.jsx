@@ -7,10 +7,10 @@ const API_BASE = "https://releaseradar-production-9651.up.railway.app";
 
 const SUGGESTED_QUERIES = [
   "Which crash issues affected Android?",
-  "What regressions were introduced in Flutter 3.19?",
+  "What bugs were fixed in Flutter 3.44?",
   "Which issues are still open and unresolved?",
   "What rendering bugs appear across multiple releases?",
-  "Which release introduced Impeller and what problems followed?",
+  "What changed in React Native 0.86 and what issues followed?",
   "What are the most critical P1 issues in the dataset?",
 ];
 
