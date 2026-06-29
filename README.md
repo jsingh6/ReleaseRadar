@@ -9,7 +9,7 @@ AI-powered release intelligence for mobile engineering teams. Ask natural langua
 ---
 
 
-<img width="400" height="244" alt="releaseRadar" src="https://github.com/user-attachments/assets/ace96b2c-846a-4073-8416-8744f491a04f" />
+<img width="1100" height="540" alt="releaseRadar" src="https://github.com/user-attachments/assets/ace96b2c-846a-4073-8416-8744f491a04f" />
 
 
 ## Setup (step by step)
