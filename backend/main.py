@@ -284,14 +284,17 @@ Rules:
 - Distinguish between iOS and Android when the platform is relevant.
 - If the context doesn't contain enough information, say so clearly rather than guessing."""
 
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    async_client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     sources_payload = [s.model_dump() for s in sources]
 
-    def generate():
+    async def generate():
         from datetime import datetime, timezone
         full_answer = ""
 
-        with client.messages.stream(
+        # Initial padding flushes Railway's proxy buffer immediately
+        yield ": ping\n\n"
+
+        async with async_client.messages.stream(
             model="claude-sonnet-4-6",
             max_tokens=1024,
             system=system_prompt,
@@ -300,11 +303,10 @@ Rules:
                 "content": f"Context:\n\n{context}\n\n---\n\nQuestion: {req.query}"
             }],
         ) as stream:
-            for text in stream.text_stream:
+            async for text in stream.text_stream:
                 full_answer += text
                 yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
 
-        # After streaming completes — log + PostHog
         ph.capture(
             distinct_id="releaseradar-user",
             event="query_answered",
