@@ -16,6 +16,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import anthropic
@@ -235,21 +236,12 @@ class QueryResponse(BaseModel):
 
 # ── RAG query endpoint ───────────────────────────────────────────────────────
 
-@app.post("/query", response_model=QueryResponse)
+@app.post("/query")
 async def query(req: QueryRequest):
-    """
-    The core RAG endpoint. Three steps:
-    1. Retrieve: similarity search in ChromaDB
-    2. Assemble: build context string from top-k chunks
-    3. Generate: call Claude with context + question
-    """
     if not _collection:
         raise HTTPException(status_code=503, detail="Vector store not ready. Run fetch_data.py first.")
 
     # ── Step 1: Retrieve ────────────────────────────────────────────────────
-    # similarity_search_with_score embeds the query and finds nearest neighbors.
-    # Returns list of (Document, score) tuples. Lower score = more similar.
-# ── Step 1: Retrieve ────────────────────────────────────────────────────
     query_vector = _model.encode([req.query]).tolist()
     results = _collection.query(
         query_embeddings=query_vector,
@@ -282,13 +274,8 @@ async def query(req: QueryRequest):
 
     context = "\n\n---\n\n".join(context_parts)
 
-    # DEBUG TIP: Print context here if Claude's answers seem wrong
-    # print("=== CONTEXT SENT TO CLAUDE ===")
-    # print(context[:1000])
-
-    # ── Step 3: Generate ────────────────────────────────────────────────────
     system_prompt = """You are ReleaseRadar, an AI assistant for mobile engineering teams.
-You analyze GitHub Issues and release notes from open source mobile projects (Flutter, React Native) 
+You analyze GitHub Issues and release notes from open source mobile projects (Flutter, React Native)
 to help teams understand crash patterns, regressions, and release quality.
 
 Rules:
@@ -298,43 +285,57 @@ Rules:
 - If the context doesn't contain enough information, say so clearly rather than guessing."""
 
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=system_prompt,
-        messages=[{
-            "role": "user",
-            "content": f"Context:\n\n{context}\n\n---\n\nQuestion: {req.query}"
-        }],
-    )
-    answer = message.content[0].text
+    sources_payload = [s.model_dump() for s in sources]
 
-    ph.capture(
-        distinct_id="releaseradar-user",
-        event="query_answered",
-        properties={
+    def generate():
+        from datetime import datetime, timezone
+        full_answer = ""
+
+        with client.messages.stream(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[{
+                "role": "user",
+                "content": f"Context:\n\n{context}\n\n---\n\nQuestion: {req.query}"
+            }],
+        ) as stream:
+            for text in stream.text_stream:
+                full_answer += text
+                yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+
+        # After streaming completes — log + PostHog
+        ph.capture(
+            distinct_id="releaseradar-user",
+            event="query_answered",
+            properties={
+                "query": req.query,
+                "sources_count": len(sources),
+                "source_ids": [s.id for s in sources],
+                "repos": list({s.repo for s in sources}),
+                "platforms": list({s.platform for s in sources}),
+            }
+        )
+
+        log_path = DATA_DIR / "query_log.json"
+        log = json.loads(log_path.read_text()) if log_path.exists() else []
+        log.append({
             "query": req.query,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "sources_count": len(sources),
             "source_ids": [s.id for s in sources],
-            "repos": list({s.repo for s in sources}),
             "platforms": list({s.platform for s in sources}),
-        }
+            "repos": list({s.repo for s in sources}),
+        })
+        log_path.write_text(json.dumps(log))
+
+        yield f"data: {json.dumps({'type': 'done', 'sources': sources_payload, 'query': req.query})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
-
-    from datetime import datetime, timezone
-    log_path = DATA_DIR / "query_log.json"
-    log = json.loads(log_path.read_text()) if log_path.exists() else []
-    log.append({
-        "query": req.query,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "sources_count": len(sources),
-        "source_ids": [s.id for s in sources],
-        "platforms": list({s.platform for s in sources}),
-        "repos": list({s.repo for s in sources}),
-    })
-    log_path.write_text(json.dumps(log))
-
-    return QueryResponse(answer=answer, sources=sources, query=req.query)
 
 
 # ── Stats endpoint ───────────────────────────────────────────────────────────

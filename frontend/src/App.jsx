@@ -92,8 +92,27 @@ export default function ReleaseRadar() {
         body: JSON.stringify({ query: text, top_k: 6 }),
       });
       if (!res.ok) throw new Error(`API error ${res.status}`);
-      const data = await res.json();
-      setResult(data);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let answer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const event = JSON.parse(line.slice(6));
+          if (event.type === "token") {
+            answer += event.text;
+            setLoading(false);
+            setResult({ answer, sources: [], query: text });
+          } else if (event.type === "done") {
+            setResult({ answer, sources: event.sources, query: event.query });
+          }
+        }
+      }
       setHistory(prev => [{ query: text }, ...prev.slice(0, 4)]);
     } catch (e) {
       setError(e.message);
