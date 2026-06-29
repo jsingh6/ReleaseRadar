@@ -1,86 +1,182 @@
 [
   {
-    "version": "RM-2024.1.0",
-    "release_date": "2024-01-15",
+    "version": "FL-3.19.0-0.1.pre",
+    "release_date": "2024-01-11",
     "platform": "iOS, Android",
     "repo": "flutter/flutter",
-    "highlights": [
-      "Flutter 3.19 engine upgrade",
-      "Impeller rendering enabled by default on iOS",
-      "Android platform view performance improvements",
-      "Fixed null safety migration crash in legacy plugins"
-    ],
-    "changes": "Major engine upgrade to Flutter 3.19. Impeller GPU rendering enabled by default on iOS, replacing Skia. Android platform view rendering refactored for lower latency. Several null safety violations in legacy plugin interop resolved.",
-    "known_issues": [
-      "Impeller causes blank screen on iPhone 12 mini \u2014 fix in RM-2024.1.1"
-    ]
+    "highlights": [],
+    "changes": "The release of the Flutter 3.19 beta contains the changes noted below.\r\n\r\nTo try out the newest beta run: \r\n```\r\nflutter channel beta\r\nflutter upgrade\r\n```\r\n\r\n# Flutter 3.19 beta (January 10, 2024)\r\n\r\n## Flutter Framework\r\n### Framework\r\n* Retry on transient Skia failure. by @Hixie in https://github.com/flutter/flutter/pull/139182\r\n* Reverts \"Retry on transient Skia failure.\" by @auto-submit in https://github.com/flutter/flutter/pull/139407\r\n* Add Impeller complex layout impeller benchmarks. by @jonahwilliams in https://github.com/flutter/flutter/pull/139490\r\n* Enable TapRegion to detect all mouse button click by @anidotnet in https://github.com/flutter/flutter/pull/136799\r\n* Removed deprecated NavigatorState.focusScopeNode by @Piinks in https://github.com/flutter/flutter/pull/139260\r\n* Roll dependencies by @Hixie in https://github.com/flutter/flutter/pull/139606\r\n* Reset deprecation period for setPubRootDirectories by @Piinks in https://github.com/flutter/flutter/pull/139592\r\n* [Android] Bump template & integration test Gradle version to 7.6.4 by @camsim99 in https://github.com/flutter/flutter/pull/139276\r\n* Don't send images to Gold on release branches by @Piinks in https://githu",
+    "known_issues": [],
+    "source": "release_notes"
   },
   {
-    "version": "RM-2024.1.1",
-    "release_date": "2024-01-22",
-    "platform": "iOS",
+    "version": "FL-3.18.0-0.1.pre",
+    "release_date": "2023-12-12",
+    "platform": "iOS, Android",
     "repo": "flutter/flutter",
-    "highlights": [
-      "Impeller blank screen fix for iPhone 12 mini",
-      "Metal shader compilation fix"
-    ],
-    "changes": "Hotfix for Impeller rendering blank screen on iPhone 12 mini and older A14 devices. Metal shader pre-compilation added to resolve first-frame stutter.",
-    "known_issues": []
+    "highlights": [],
+    "changes": "The release of the Flutter 3.18 beta contains the changes noted below.\r\n\r\nWe\u2019ve also included summaries of **notable commits** towards features and enhancements of interest. These summaries help you quickly assess what this beta has to offer and why you should use it, as well as highlight the features we\u2019d love your feedback on and your help testing.\r\n\r\nTo try out the newest beta run: \r\n```\r\nflutter channel beta\r\nflutter upgrade\r\n```\r\n\r\n# Flutter 3.18 beta (December 5, 2023)\r\n\r\n## Flutter Framework\r\n### Notable commits\r\n#### Added support for Apple system fonts\r\nFlutter text now looks a little more compact and a little more native on iOS. For the \"Text\" font this will be more secure in the future against possible changes to Apple's API. For the \"Display\" font, this will now work correctly when it didn't before.\r\n* Refactor to use Apple system fonts by @MitchellGoodwin in https://github.com/flutter/flutter/pull/137275\r\n#### Adaptive `Switch`\r\n\r\nThe implementation of Switch.adaptive no longer depends on the Cupertino library. Everything is handled by the Material component and there are no longer any switch properties that are not supported by the `.adaptive` version. We also added s",
+    "known_issues": [],
+    "source": "release_notes"
   },
   {
-    "version": "RM-2024.2.0",
-    "release_date": "2024-02-10",
+    "version": "FL-3.17.0-0.1.pre",
+    "release_date": "2023-12-11",
+    "platform": "iOS, Android",
+    "repo": "flutter/flutter",
+    "highlights": [],
+    "changes": "The release of the Flutter 3.17 beta contains the changes noted below.\r\n\r\nTo try out the newest beta run: \r\n```\r\nflutter channel beta\r\nflutter upgrade\r\n```\r\n\r\n# Flutter 3.17 beta (November 15, 2023)\r\n## Flutter Framework\r\n### Framework\r\n* Update dialog tests for Material3 by @MitchellGoodwin in https://github.com/flutter/flutter/pull/135775\r\n* Fix a couple of CupertinoTextField tests to avoid leak-tracking test failures. by @ksokolovskyi in https://github.com/flutter/flutter/pull/135851\r\n* leak track tab_scaffold_test.dart by @NobodyForNothing in https://github.com/flutter/flutter/pull/135309\r\n* Cover some cupertino tests with leak tracking by @NobodyForNothing in https://github.com/flutter/flutter/pull/135230\r\n* Fix the character field of RawKeyEvent is always null on iOS by @LinXunFeng in https://github.com/flutter/flutter/pull/135100\r\n* Remove unused InlineSpan methods by @LongCatIsLooong in https://github.com/flutter/flutter/pull/135882\r\n* Replace dead link in `CupertinoPicker` documentation by @Pante in https://github.com/flutter/flutter/pull/135897\r\n* Tiny improve code style by using records instead of lists by @fzyzcjy in https://github.com/flutter/flutter/pull/135886\r\n* Fix",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "FL-3.16.0-0.1.pre",
+    "release_date": "2023-10-20",
+    "platform": "iOS, Android",
+    "repo": "flutter/flutter",
+    "highlights": [],
+    "changes": "The release of the Flutter 3.16 beta contains the changes noted below.\r\n\r\nTo try out the newest beta run: \r\n```\r\nflutter channel beta\r\nflutter upgrade\r\n```\r\n\r\n## Flutter 3.16 beta (October 11, 2023)\r\n### Framework\r\n* CupertinoAlertDialog should not create ScrollController on every build, if null values are passed in constructor. by @polina-c in https://github.com/flutter/flutter/pull/133918\r\n* _SearchBarState should dispose FocusNode, if it created it. by @polina-c in https://github.com/flutter/flutter/pull/133947\r\n* RenderParagraph should dispose instances of SelectableFragments. by @polina-c in https://github.com/flutter/flutter/pull/133915\r\n* _MaterialAppState should dispose MaterialHeroController. by @polina-c in https://github.com/flutter/flutter/pull/133951\r\n* Cover more tests with leak tracking. by @polina-c in https://github.com/flutter/flutter/pull/133958\r\n* Dispose AnimationSheetRecorder to avoid leaks by @dkwingsmt in https://github.com/flutter/flutter/pull/133365\r\n* Revert \"_SearchBarState should dispose FocusNode, if it created it.\" by @polina-c in https://github.com/flutter/flutter/pull/134072\r\n* Revert \"CupertinoAlertDialog should not create ScrollController on every",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "FL-3.15.0-15.1.pre",
+    "release_date": "2023-09-15",
+    "platform": "iOS, Android",
+    "repo": "flutter/flutter",
+    "highlights": [],
+    "changes": "The release of the Flutter 3.15 beta contains the changes noted below.\r\n\r\nTo try out the newest beta run: \r\n```\r\nflutter channel beta\r\nflutter upgrade\r\n```\r\n\r\n# Flutter 3.15 beta (September 15, 2023)\r\n## Flutter\r\n### Framework\r\n* Handle breaking changes in leak_tracker. by @polina-c in https://github.com/flutter/flutter/pull/131998\r\n* More documentation about warm-up frames by @Hixie in https://github.com/flutter/flutter/pull/132085\r\n* Remove Iterator from _History by @justinmc in https://github.com/flutter/flutter/pull/132101\r\n* [framework] Add Search Web to selection controls for iOS by @LouiseHsu in https://github.com/flutter/flutter/pull/131898\r\n* Paginated Data Table : Fixed Row number at footer in last page  by @aakash-pamnani in https://github.com/flutter/flutter/pull/130389\r\n* Fix `TabBarTheme.indicatorColor` not applied in Material 2 by @TahaTesser in https://github.com/flutter/flutter/pull/132123\r\n* Document that missed_frame_build_budget_count is misleading by @Hixie in https://github.com/flutter/flutter/pull/132137\r\n* More PageStorage clarity in the documentation by @Hixie in https://github.com/flutter/flutter/pull/131954\r\n* Add `PopupMenuButton.iconColor`, `PopupMenuTh",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "FL-3.14.0-0.1.pre",
+    "release_date": "2023-08-21",
+    "platform": "iOS, Android",
+    "repo": "flutter/flutter",
+    "highlights": [],
+    "changes": "# Flutter 3.14 beta\r\n\r\nThe release of the Flutter 3.14 beta contains the changes noted below.\r\n\r\nTo try out the newest beta run: \r\n```\r\nflutter channel beta\r\nflutter upgrade\r\n```\r\n## Hotfixes to the 3.14 beta\r\n\r\n### 3.14.1 beta (Aug 31, 2023)\r\n\r\n#### Framework\r\n\r\n* Fix web debug RPCError by @christopherfujino in https://github.com/flutter/flutter/issues/132363\r\n* Fix Xcode 15 build failure due to DT_TOOLCHAIN_DIR by @vashworth in https://github.com/flutter/flutter/issues/132957\r\n* Make space character optional when tree shaking fonts by @christopherfujino in https://github.com/flutter/flutter/issues/132978\r\n\r\n#### Engine\r\n\r\n* [Impeller] Apply color blends on the CPU and fix mask blurs and the Gaussian blur coverage hint by @bdero in https://github.com/flutter/flutter/issues/133511\r\n\r\n# Flutter 3.14 beta\r\n\r\n## Flutter\r\n### Framework\r\n* Super tiny code optimization: No need to redundantly check whether value has changed by @fzyzcjy in https://github.com/flutter/flutter/pull/130050\r\n* Revert \"fix a bug when android uses CupertinoPageTransitionsBuilder...\" by @HansMuller in https://github.com/flutter/flutter/pull/130144\r\n* Tiny one space formatting fix by @fzyzcjy in https://github.com",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "FL-3.13.0-0.1.pre",
+    "release_date": "2023-07-12",
+    "platform": "iOS, Android",
+    "repo": "flutter/flutter",
+    "highlights": [],
+    "changes": "# Flutter 3.13 beta\r\n\r\nThe release of the Flutter 3.13 beta contains the changes noted below.\r\n\r\nTo try out the newest beta run: \r\n```\r\nflutter channel beta\r\nflutter upgrade\r\n```\r\n\r\n## Hotfixes to the 3.13 beta\r\n\r\n### 3.13.3 beta (August 14, 2023)\r\n\r\n#### Framework\r\n\r\n* Allow OverlayPortal to be added/removed from the tree in a layout callback by @LongCatIsLooong in https://github.com/flutter/flutter/issues/131002\r\n* Fix assertion when a WidgetSpan is scaled by certain textScaleFactor values by @LongCatIsLooong in https://github.com/flutter/flutter/issues/131004\r\n* Fix Tooltip crash when selected in a SelectableRegion by @LongCatIsLooong in https://github.com/flutter/flutter/issues/131005\r\n* Constrain _RenderScaledInlineWidget child size in computeDryLayout in by @LongCatIsLooong  https://github.com/flutter/flutter/issues/132095\r\n\r\n#### Engine\r\n\r\n* No changes\r\n\r\n### 3.13.2 beta (August 07, 2023)\r\n\r\n#### Framework\r\n\r\n* Minor adjustments on 2D APIs by @Piinks in https://github.com/flutter/flutter/pull/131436\r\n\r\n#### Engine\r\n\r\n* [Impeller] Revert removal of wait until scheduled by @jonahwilliams in https://github.com/flutter/engine/pull/44122\r\n* [Impeller] Avoid culling when the curre",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "RN-v0.83.10",
+    "release_date": "2026-06-26",
     "platform": "iOS, Android",
     "repo": "facebook/react-native",
-    "highlights": [
-      "React Native 0.73.4",
-      "New Architecture (Fabric) stability improvements",
-      "Hermes engine memory leak fix",
-      "iOS 17 gesture recognizer regression fixed"
-    ],
-    "changes": "React Native 0.73.4 release. New Architecture Fabric renderer improved stability for concurrent mode. Hermes engine patch fixes memory leak in long-running apps. iOS 17 introduced a gesture recognizer conflict with React Native's touch system \u2014 patched in this release.",
-    "known_issues": [
-      "Android back handler broken on Android 14 with predictive back gesture \u2014 tracking in GH-RN-42123"
-    ]
+    "highlights": [],
+    "changes": "## v0.83.10\r\n\r\n### Added\r\n\r\n#### iOS specific\r\n\r\n- Cache prebuilt iOS binaries in `~/Library/Caches/ReactNative` so Hermes, ReactNativeDependencies and ReactNativeCore tarballs are reused across clean installs and projects instead of being re-downloaded from Maven ([9a0b05b8d0](https://github.com/react/react-native/commit/9a0b05b8d07f3468a08077119189406d56a230ba) by [@cipolleschi](https://github.com/cipolleschi))\r\n\r\n### Fixed\r\n\r\n- Fixed Yoga node ownership when `display: contents` is used in absolutely positioned subtrees ([f2f92098dd](https://github.com/react/react-native/commit/f2f92098ddf996d3f75cfbaa143d7151c29776f7) by [@j-piasecki](https://github.com/j-piasecki))\r\n- Fixed `display: contents` nodes having `hasNewLayout` set incorrectly ([2546ce4d82](https://github.com/react/react-native/commit/2546ce4d8219050fcd1bf432c7c830c9fd70c9af) by [@j-piasecki](https://github.com/j-piasecki))\r\n- React Native DevTools: Fix a bug where we would incorrectly flag apps using additional Hermes runtimes (e.g. Reanimated) as being multi-host ([c800503214](https://github.com/react/react-native/commit/c8005032140f1aff16027b5ed53caea6c9d299f5) by [@huntie](https://github.com/huntie))\r\n\r\n#### Andro",
+    "known_issues": [],
+    "source": "release_notes"
   },
   {
-    "version": "RM-2024.2.1",
-    "release_date": "2024-02-20",
-    "platform": "Android",
-    "repo": "facebook/react-native",
-    "highlights": [
-      "Android 14 predictive back gesture fix",
-      "Back handler API now supports predictive animations"
-    ],
-    "changes": "Android 14 introduced predictive back gesture system incompatible with React Native's BackHandler API. This release adds native support for the predictive back gesture, enabling smooth animations on Android 14+.",
-    "known_issues": []
-  },
-  {
-    "version": "RM-2024.3.0",
-    "release_date": "2024-03-05",
+    "version": "RN-v0.86.0",
+    "release_date": "2026-06-11",
     "platform": "iOS, Android",
-    "repo": "flutter/flutter",
-    "highlights": [
-      "Flutter 3.22 \u2014 Impeller on Android (preview)",
-      "DevTools 2.32",
-      "Web platform rendering improvements",
-      "TextField cursor regression fix"
-    ],
-    "changes": "Impeller GPU renderer enters preview on Android (Vulkan-capable devices). DevTools updated with CPU profiling improvements. TextField cursor position regression from 3.19 resolved \u2014 affected RTL text inputs and autocomplete overlays.",
-    "known_issues": [
-      "Impeller on Android causes ANR on Samsung Galaxy A-series \u2014 tracking in GH-FL-145001"
-    ]
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "### Added\r\n\r\n- **Accessibility**: AccessibilityInfo: added missing tests for Promise based methods, align null checks and error message code style ([8fc503d780](https://github.com/facebook/react-native/commit/8fc503d7806ff83c6001cc4e0fe7b8b85a804245) by [@chicio](https://github.com/chicio))\r\n- **Animated**: Suspense tests for the Animation Backend ([8101fc776d](https://github.com/facebook/react-native/commit/8101fc776d842b8b92a516f74831e2056bc34aa6) by Bartlomiej Bloniarz)\r\n- **Animated**: Use weak_ptr when calling pullAnimationMutations in a callback scheduled with the Animation Backend ([42d98b5830](https://github.com/facebook/react-native/commit/42d98b58302dafb484a494ab4fc199f88f215c1d) by Bartlomiej Bloniarz)\r\n- **Dev Server**: Call methods on `global.__BUNDLE_LOADER_REPORTER__`, if given, during dev-mode bundler loads from Metro ([1e0c1f886b](https://github.com/facebook/react-native/commit/1e0c1f886ba9de7541eeb753091715011c515c00) by [@robhogan](https://github.com/robhogan))\r\n- **React Native DevTools**: Add new custom track for React Native Renderer operations in React Native DevTools performance traces ([0b1def9ce5](https://github.com/facebook/react-native/commit/0b1def9ce5f",
+    "known_issues": [],
+    "source": "release_notes"
   },
   {
-    "version": "RM-2024.3.1",
-    "release_date": "2024-03-15",
-    "platform": "Android",
-    "repo": "flutter/flutter",
-    "highlights": [
-      "Impeller ANR fix for Samsung Galaxy A-series",
-      "Vulkan driver compatibility layer added"
-    ],
-    "changes": "Impeller Vulkan renderer caused ANR on Samsung devices with Mali GPU driver 24.0.x. Added compatibility shim detecting Mali driver version and falling back to OpenGL on affected devices.",
-    "known_issues": []
+    "version": "RN-v0.85.3",
+    "release_date": "2026-05-05",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "### Changed\r\n\r\n- **React Native DevTools**: Update debugger-frontend from 8edd9be...194d3f8 ([9966cbdf4d](https://github.com/facebook/react-native/commit/9966cbdf4da99ee036a75bec4da9bb2e1ee7a9c4) by [@motiz88](https://github.com/motiz88))\r\n\r\n### Fixed\r\n\r\n- **Build**: Use pinned Hermes version when version.properties is not 1000.0.0 ([5e3a3ba995](https://github.com/facebook/react-native/commit/5e3a3ba995026b42c2ea0ad7ee4758fcf73005e6) by [@cipolleschi](https://github.com/cipolleschi))\r\n\r\n#### iOS specific\r\n\r\n- **Build**: Fix silent tar extraction failure on EdenFS in replace-rncore-version.js by extracting to a temp directory first ([9bc7d38be0](https://github.com/facebook/react-native/commit/9bc7d38be0771ae4006206fcb174956f53adf508) by [@motiz88](https://github.com/motiz88))\r\n- **Build**: Skip prebuilds for DynamicFrameworks CI jobs ([753c19bea4](https://github.com/facebook/react-native/commit/753c19bea4ab854eb8000b2b5bab814261a46596) by [@motiz88](https://github.com/motiz88))\r\n\r\n---\r\n\r\nHermes dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.16.0/hermes-ios-0.16.0-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/fa",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "RN-v0.83.9",
+    "release_date": "2026-04-27",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "\r\n---\r\n\r\nHermes dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.14.1/hermes-ios-0.14.1-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.14.1/hermes-ios-0.14.1-hermes-framework-dSYM-release.tar.gz)\r\n\r\nHermes V1 dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.4/hermes-ios-250829098.0.4-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.4/hermes-ios-250829098.0.4-hermes-framework-dSYM-release.tar.gz)\r\n\r\nReactNativeDependencies dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.83.9/react-native-artifacts-0.83.9-reactnative-dependencies-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.83.9/react-native-artifacts-0.83.9-reactnative-dependencies-dSYM-release.tar.gz)\r\n\r\nReactNative Core dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.83.9/react-native-artifacts-0.83.9-reactnative-core-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/m",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "RN-v0.83.8",
+    "release_date": "2026-04-24",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "\r\n---\r\n\r\nHermes dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.14.1/hermes-ios-0.14.1-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.14.1/hermes-ios-0.14.1-hermes-framework-dSYM-release.tar.gz)\r\n\r\nHermes V1 dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.4/hermes-ios-250829098.0.4-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.4/hermes-ios-250829098.0.4-hermes-framework-dSYM-release.tar.gz)\r\n\r\nReactNativeDependencies dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.83.8/react-native-artifacts-0.83.8-reactnative-dependencies-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.83.8/react-native-artifacts-0.83.8-reactnative-dependencies-dSYM-release.tar.gz)\r\n\r\nReactNative Core dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.83.8/react-native-artifacts-0.83.8-reactnative-core-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/m",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "RN-v0.83.7",
+    "release_date": "2026-04-24",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "\r\n---\r\n\r\nHermes dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.14.1/hermes-ios-0.14.1-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.14.1/hermes-ios-0.14.1-hermes-framework-dSYM-release.tar.gz)\r\n\r\nHermes V1 dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.4/hermes-ios-250829098.0.4-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.4/hermes-ios-250829098.0.4-hermes-framework-dSYM-release.tar.gz)\r\n\r\nReactNativeDependencies dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.83.7/react-native-artifacts-0.83.7-reactnative-dependencies-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.83.7/react-native-artifacts-0.83.7-reactnative-dependencies-dSYM-release.tar.gz)\r\n\r\nReactNative Core dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.83.7/react-native-artifacts-0.83.7-reactnative-core-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/m",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "RN-v0.85.2",
+    "release_date": "2026-04-20",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "\r\n---\r\n\r\nHermes dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.16.0/hermes-ios-0.16.0-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.16.0/hermes-ios-0.16.0-hermes-framework-dSYM-release.tar.gz)\r\n\r\nHermes V1 dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.10/hermes-ios-250829098.0.10-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.10/hermes-ios-250829098.0.10-hermes-framework-dSYM-release.tar.gz)\r\n\r\nReactNativeDependencies dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.85.2/react-native-artifacts-0.85.2-reactnative-dependencies-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.85.2/react-native-artifacts-0.85.2-reactnative-dependencies-dSYM-release.tar.gz)\r\n\r\nReactNative Core dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.85.2/react-native-artifacts-0.85.2-reactnative-core-debug.tar.gz)\r\n- [Release](https://repo1.maven.o",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "RN-v0.83.6",
+    "release_date": "2026-04-16",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "\r\n### Fixed\r\n\r\n- Provide symbol fallbacks for `inspector-modern/chrome/Registration.h` when `HERMES_V1_ENABLED` is set ([efc4cf4ea9](https://github.com/facebook/react-native/commit/efc4cf4ea963894ef6c5ed57bab16e46c4d6e5ca) by [@huntie](https://github.com/huntie))\r\n\r\n#### iOS specific\r\n\r\n- Fix \"Loading from Metro...\" banner getting stuck after reloads in quick succession. ([e122c24c27](https://github.com/facebook/react-native/commit/e122c24c273f5fb6e0a2d6b1c961d75ac9bc90b7) by [@alanjhughes](https://github.com/alanjhughes))\r\n\r\n---\r\n\r\nHermes dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.14.1/hermes-ios-0.14.1-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.14.1/hermes-ios-0.14.1-hermes-framework-dSYM-release.tar.gz)\r\n\r\nHermes V1 dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.4/hermes-ios-250829098.0.4-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.4/hermes-ios-250829098.0.4-hermes-framework-dSYM-release.tar.gz)\r\n\r\nReactNativeDependencies dSYMs:\r\n- [Debug](https://re",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "RN-v0.85.1",
+    "release_date": "2026-04-13",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "---\r\n\r\nHermes dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.16.0/hermes-ios-0.16.0-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.16.0/hermes-ios-0.16.0-hermes-framework-dSYM-release.tar.gz)\r\n\r\nHermes V1 dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.10/hermes-ios-250829098.0.10-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.10/hermes-ios-250829098.0.10-hermes-framework-dSYM-release.tar.gz)\r\n\r\nReactNativeDependencies dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.85.1/react-native-artifacts-0.85.1-reactnative-dependencies-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.85.1/react-native-artifacts-0.85.1-reactnative-dependencies-dSYM-release.tar.gz)\r\n\r\nReactNative Core dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.85.1/react-native-artifacts-0.85.1-reactnative-core-debug.tar.gz)\r\n- [Release](https://repo1.maven.org",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "RN-v0.83.5",
+    "release_date": "2026-04-14",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "### Fixed\r\n\r\n- **Appearance**: Fix color scheme in appearance state after setting it to unspecified ([c338d19](https://github.com/facebook/react-native/commit/c338d19a1d4dfeb06ca796176a23f6b07457ac50) by [@ismarbesic](https://github.com/ismarbesic))\r\n\r\n#### Android specific\r\n\r\n- **Networking**: File:// URIs passed to fetch() or XMLHttpRequest no longer fail (https://github.com/facebook/react-native/issues/54626) ([3cf6bff](https://github.com/facebook/react-native/commit/3cf6bff25d106c2f25b6c7cfce6295bd812013bf) by [@bhamiltoncx](https://github.com/bhamiltoncx))\r\n\r\n#### iOS specific\r\n\r\n- **Build**: Bump fmt to 12.1.0 to fix Xcode 26.4 ([faeef2b90a](https://github.com/facebook/react-native/commit/faeef2b90a56633ad44289b994d31e7ce590b145) by [@leotm](https://github.com/leotm))\r\n- **Hermes**: Fix Hermes crash when async void TurboModule method throws NSException by re-throwing instead of converting to JSError on wrong thread ([a9a976a](https://github.com/facebook/react-native/commit/a9a976af89c3cd52e7f742109e24dbc6ebf09aa9) by [@fabriziocucci](https://github.com/fabriziocucci))\r\n---\r\n\r\nHermes dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.14.1/hermes-",
+    "known_issues": [],
+    "source": "release_notes"
+  },
+  {
+    "version": "RN-v0.85.0",
+    "release_date": "2026-04-08",
+    "platform": "iOS, Android",
+    "repo": "facebook/react-native",
+    "highlights": [],
+    "changes": "\r\n---\r\n\r\nHermes dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.16.0/hermes-ios-0.16.0-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/0.16.0/hermes-ios-0.16.0-hermes-framework-dSYM-release.tar.gz)\r\n\r\nHermes V1 dSYMS:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.10/hermes-ios-250829098.0.10-hermes-framework-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/hermes/hermes-ios/250829098.0.10/hermes-ios-250829098.0.10-hermes-framework-dSYM-release.tar.gz)\r\n\r\nReactNativeDependencies dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.85.0/react-native-artifacts-0.85.0-reactnative-dependencies-dSYM-debug.tar.gz)\r\n- [Release](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.85.0/react-native-artifacts-0.85.0-reactnative-dependencies-dSYM-release.tar.gz)\r\n\r\nReactNative Core dSYMs:\r\n- [Debug](https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.85.0/react-native-artifacts-0.85.0-reactnative-core-debug.tar.gz)\r\n- [Release](https://repo1.maven.o",
+    "known_issues": [],
+    "source": "release_notes"
   }
 ]

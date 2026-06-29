@@ -13,6 +13,7 @@ import json
 import os
 import time
 import requests
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -61,11 +62,13 @@ def fetch_github_issues(owner: str, repo: str, labels: list[str], max_issues: in
     issues = []
     label_str = ",".join(labels)
     url = f"https://api.github.com/repos/{owner}/{repo}/issues"
+    since = (datetime.now(timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
     params = {
         "labels": label_str,
         "state": "all",       # include closed (fixed) issues too
         "per_page": 30,
         "sort": "updated",
+        "since": since,       # last 3 months only
     }
 
     print(f"Fetching {owner}/{repo} issues with labels: {labels}")
@@ -161,6 +164,42 @@ def _infer_platform(item: dict) -> str:
     if any(x in combined for x in ["ios", "iphone", "ipad", "swift"]):
         return "iOS"
     return "iOS, Android"
+
+
+def fetch_github_releases(owner: str, repo: str, months: int = 3) -> list[dict]:
+    """Fetch real releases from GitHub for the last N months."""
+    url = f"https://api.github.com/repos/{owner}/{repo}/releases"
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
+    prefix = "FL" if repo == "flutter" else "RN"
+
+    response = requests.get(url, headers=HEADERS, params={"per_page": 50})
+    if response.status_code != 200:
+        print(f"❌ Error fetching releases for {owner}/{repo}: {response.status_code}")
+        return []
+
+    raw = [r for r in response.json() if not r.get("draft") and not r.get("prerelease")]
+
+    # Filter to last N months; fall back to latest 10 if none found in window
+    recent = [r for r in raw if datetime.fromisoformat(r["published_at"].replace("Z", "+00:00")) >= cutoff]
+    items = recent if recent else raw[:10]
+
+    releases = []
+    for item in items:
+        releases.append({
+            "version": f"{prefix}-{item['tag_name']}",
+            "release_date": item["published_at"][:10],
+            "platform": "iOS, Android",
+            "repo": f"{owner}/{repo}",
+            "highlights": [],
+            "changes": (item.get("body") or "No release notes provided.")[:1200],
+            "known_issues": [],
+            "source": "release_notes",
+        })
+
+    label = f"last {months} months" if recent else "latest (no recent releases found)"
+    print(f"  ✓ Fetched {len(releases)} releases from {owner}/{repo} ({label})")
+    time.sleep(0.5)
+    return releases
 
 
 def generate_release_notes() -> list[dict]:
@@ -286,11 +325,18 @@ def main():
         json.dump(all_issues, f, indent=2)
     print(f"\n✅ Saved {len(all_issues)} issues → {issues_path}")
 
-    release_notes = generate_release_notes()
+    all_releases = []
+    all_releases.extend(fetch_github_releases("flutter", "flutter", months=3))
+    all_releases.extend(fetch_github_releases("facebook", "react-native", months=3))
+
+    if not all_releases:
+        print("⚠️  No releases fetched — falling back to fixtures")
+        all_releases = generate_release_notes()
+
     releases_path = DATA_DIR / "release_notes.json"
     with open(releases_path, "w") as f:
-        json.dump(release_notes, f, indent=2)
-    print(f"✅ Saved {len(release_notes)} release notes → {releases_path}")
+        json.dump(all_releases, f, indent=2)
+    print(f"✅ Saved {len(all_releases)} release notes → {releases_path}")
 
     print("\nNext step: python main.py")
 
