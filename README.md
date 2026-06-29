@@ -1,176 +1,141 @@
-# ReleaseRadar
+# 🛰️ ReleaseRadar
 
-<img width="1280" height="640" alt="ReleaseRadar-thumbnail" src="https://github.com/user-attachments/assets/95adf192-0c59-4ddb-910b-1c0edb21abc8" />
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://release-radar-sdk.vercel.app)
+[![Python](https://img.shields.io/badge/python-3.12-blue)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)](https://fastapi.tiangolo.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AI-powered release intelligence for mobile engineering teams. Ask natural language questions across GitHub Issues and release notes — get precise, cited answers with links to the fixes.
+AI-powered release intelligence for mobile engineering teams. Ask natural language questions across GitHub Issues, crash events, and release notes — get precise, cited answers powered by RAG + Claude.
 
-**Data sources:** Real GitHub Issues from `flutter/flutter` and `facebook/react-native` (crash, regression, bug labels) + fixture release notes (RM-prefixed). Closed issues include linked PR descriptions so Claude can explain how issues were fixed.
-
----
-
- [![ReleaseRadar Demo](https://github.com/user-attachments/assets/557291b1-8185-422f-8e9d-3fad8770c53e)](https://release-radar-sdk.vercel.app/)
-
-## Setup (step by step)
-
-### 1. Clone and navigate
-
-```bash
-git clone https://github.com/jsingh6/releaseradar
-cd releaseradar
-```
-
-### 2. Python environment
-
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate      # Mac/Linux
-# venv\Scripts\activate       # Windows
-pip install -r requirements.txt
-```
-
-### 3. Environment variables
-
-```bash
-cp .env.example .env
-# Edit .env and add your keys
-```
-
-`.env.example`:
-```
-ANTHROPIC_API_KEY=your_key_here
-GITHUB_TOKEN=optional_for_higher_rate_limits
-```
-
-> **Note:** `GITHUB_TOKEN` is strongly recommended. Without it you hit GitHub's 60 req/hour unauthenticated limit quickly when fetching issues + linked PRs.
-
-### 4. Fetch real data from GitHub
-
-```bash
-python fetch_data.py
-```
-
-This pulls crash and regression issues from `flutter/flutter` and `facebook/react-native` via the GitHub Issues API. For each **closed** issue it also fetches the linked PR description so Claude can answer "how was this fixed?" questions with real data.
-
-Saves to `data/github_issues.json` and `data/release_notes.json`.
-
-### 5. Start the backend
-
-```bash
-python main.py
-# Server running at http://localhost:8000
-# API docs at http://localhost:8000/docs
-```
-
-**What happens on startup:**
-1. Loads `data/github_issues.json` + `data/release_notes.json`
-2. Converts each issue/release to a text string (includes fix PR descriptions for closed issues)
-3. Embeds with `all-MiniLM-L6-v2` (downloads ~90MB on first run)
-4. Stores vectors in ChromaDB at `/tmp/releaseradar_chroma`
-
-### 6. Test it immediately
-
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# Stats
-curl http://localhost:8000/stats
-
-# Analytics
-curl http://localhost:8000/analytics
-
-# Ask a question
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Which crash issues affected Android and were fixed in a recent release?"}'
-```
-
-### 7. Frontend
-
-```bash
-cd ../frontend
-npm install
-npm run dev
-# UI at http://localhost:5173
-```
+**Live demo → [release-radar-sdk.vercel.app](https://release-radar-sdk.vercel.app)**
 
 ---
 
-## Architecture
+## The Problem
 
-```
-GitHub Issues API (flutter/flutter, facebook/react-native)
-  + Linked PR descriptions (for closed issues)
-  + Release Notes (RM-2024.x fixtures)
-        ↓ fetch_data.py
-  JSON files in backend/data/
-        ↓ main.py startup
-  all-MiniLM-L6-v2 Embeddings (HuggingFace, 384-dim vectors)
-        ↓
-  ChromaDB (local vector store, 80 documents)
-        ↓ similarity search (top-k=6)
-  FastAPI /query endpoint
-        ↓
-  Claude claude-sonnet-4-6 (Anthropic) — grounded generation
-        ↓
-  React UI + Analytics Section (/analytics endpoint)
-```
+When you're serving millions of users, something will break in production. And when it does, your system for understanding what happened is usually five tools that have never met each other — crash logs in one place, bug tickets in another, test cases somewhere else, RCAs in a Google Doc nobody can find two sprints later.
 
-### API Endpoints
+The teams aren't bad at their jobs. They're buried under the coordination tax of tools built for one thing and terrible at talking to each other.
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | GET | Liveness check |
-| `/stats` | GET | Issue counts, release counts, vector store status |
-| `/query` | POST | RAG query — returns answer + cited sources |
-| `/analytics` | GET | Usage stats — total queries, today's count, most cited issue, top platform, recent queries |
+The crash happens. The sprint ends. The doc gets filed. And the next time the same pattern surfaces, everyone starts from scratch.
+
+ReleaseRadar fixes that.
 
 ---
 
-## Issue ID conventions
+[![ReleaseRadar Screenshot](images/screenshot.png)](https://release-radar-sdk.vercel.app/)
 
-| Prefix | Repo |
+---
+
+## How It Works
+
+```
+GitHub Issues + Release Notes
+        ↓
+sentence-transformers (all-MiniLM-L6-v2) → 384-dim embeddings
+        ↓
+ChromaDB vector store
+        ↓
+similarity search (top-k=6)
+        ↓
+Claude Sonnet — grounded generation with source citation
+        ↓
+React frontend
+```
+
+## Stack
+
+| Layer | Technology |
 |---|---|
-| `GH-FL-` | flutter/flutter |
-| `GH-RN-` | facebook/react-native |
-| `RM-` | Release notes (fixture data) |
+| Embeddings | sentence-transformers all-MiniLM-L6-v2 |
+| Vector Store | ChromaDB |
+| LLM | Anthropic Claude Sonnet |
+| Backend | FastAPI + Python |
+| Frontend | React + Vite |
+| Data | GitHub Issues API (flutter/flutter, facebook/react-native) |
 
 ---
 
-## Sample queries
+## Quickstart
 
-**Fix-specific**
-- "How was the Flutter Impeller ANR on Samsung Galaxy fixed?"
-- "What was the root cause of the iOS 17 gesture recognizer issue in React Native?"
-- "Show me all Flutter crash fixes from 2024 with their fix approach"
+Clone and set up:
 
-**Cross-release regression tracking**
-- "Were there any regressions introduced in Flutter 3.22 that required a hotfix?"
-- "What known issues from RM-2024.3.0 were fixed in RM-2024.3.1?"
+    git clone https://github.com/jsingh6/ReleaseRadar
+    cd ReleaseRadar/backend
+    python3 -m venv venv && source venv/bin/activate
+    pip install -r requirements.txt
 
-**Platform-specific**
-- "What Android-only crashes have been reported in Flutter?"
-- "Are there any iOS 17 specific bugs across Flutter or React Native?"
+Configure:
 
-**Release quality / upgrade decisions**
-- "Is it safe to upgrade to RM-2024.3.0 if my users are on Samsung Galaxy devices?"
-- "Which release had the most critical fixes — RM-2024.2.0 or RM-2024.3.0?"
+    echo "ANTHROPIC_API_KEY=your_key" > .env
+    echo "GITHUB_TOKEN=your_token" >> .env
+
+Fetch real data and run:
+
+    python fetch_data.py
+    python main.py
+
+Frontend:
+
+    cd frontend && npm install && npm run dev
 
 ---
 
-## Deployment
+## Sample Queries
 
-**Backend** — Railway. Set these environment variables:
-- `ANTHROPIC_API_KEY` — required
-- `GITHUB_TOKEN` — recommended (higher GitHub rate limits)
+- "Which crash issues affected Android and have been fixed?"
+- "Did this auth regression appear in a previous release?"
+- "Which open bugs have active crash signals right now?"
+- "What changed in the last release that correlates with this error spike?"
+- "What are the most critical P1 issues in the dataset?"
 
-**Frontend** — Vercel. Set:
-- `VITE_API_BASE` — Railway backend URL (if not hardcoded)
+---
+
+## Extending with Your Own Data
+
+Point fetch_data.py at your own sources:
+
+**Jira**
+
+    fetch_jira_issues(jira_url, api_token, project_key="YOUR_PROJECT")
+
+**Firebase Crashlytics**
+
+    fetch_crashlytics(firebase_project_id, credentials_path)
+
+**Splunk**
+
+    fetch_splunk_events(splunk_url, token, search_query)
+
+Each connector normalizes to the same dict shape — id, summary, description, platform, component, status — so the RAG pipeline doesn't care where the data came from.
+
+---
+
+## Architecture Decision
+
+ReleaseRadar deliberately avoids LangChain in production. The pipeline uses raw sentence-transformers + chromadb for two reasons: fewer transitive dependencies, and full visibility into what the embedding and retrieval layers are doing. LangChain is great for prototyping — when you need production stability and debuggability, owning the pipeline matters.
+
+---
+
+## Contributing
+
+Contributions welcome. Open issues for ideas:
+
+- Jira connector
+- Firebase Crashlytics connector
+- Splunk connector
+- Rate limiting on /query endpoint
+- Persistent ChromaDB (currently in-memory on Railway)
 
 ---
 
 ## Author
 
-**Jaspreet Singh** — Principal Mobile & Quality Engineer  
-[GitHub](https://github.com/jsingh6) · [LinkedIn](https://linkedin.com/in/jaspreetsjsu)
+**Jaspreet Singh** — Principal Mobile & Quality Engineer
+[LinkedIn](https://linkedin.com/in/jaspreetsjsu) · [GitHub](https://github.com/jsingh6)
+
+---
+
+## License
+
+MIT
