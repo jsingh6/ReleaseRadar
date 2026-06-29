@@ -321,6 +321,19 @@ Rules:
         }
     )
 
+    from datetime import datetime, timezone
+    log_path = DATA_DIR / "query_log.json"
+    log = json.loads(log_path.read_text()) if log_path.exists() else []
+    log.append({
+        "query": req.query,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "sources_count": len(sources),
+        "source_ids": [s.id for s in sources],
+        "platforms": list({s.platform for s in sources}),
+        "repos": list({s.repo for s in sources}),
+    })
+    log_path.write_text(json.dumps(log))
+
     return QueryResponse(answer=answer, sources=sources, query=req.query)
 
 
@@ -341,6 +354,39 @@ async def stats():
         "issues": {"total": len(issues), "p1": p1, "open": open_count},
         "releases": {"total": len(releases), "latest": releases[-1]["version"] if releases else "N/A"},
         "vectorstore_ready": _collection is not None
+    }
+
+
+# ── Analytics endpoint ───────────────────────────────────────────────────────
+
+@app.get("/analytics")
+async def analytics():
+    from datetime import datetime, timezone, date
+    from collections import Counter
+    log_path = DATA_DIR / "query_log.json"
+    log = json.loads(log_path.read_text()) if log_path.exists() else []
+
+    today = date.today().isoformat()
+    queries_today = sum(1 for e in log if e.get("timestamp", "").startswith(today))
+
+    all_ids = [sid for e in log for sid in e.get("source_ids", [])]
+    most_cited = Counter(all_ids).most_common(1)[0][0] if all_ids else None
+
+    all_platforms = [p for e in log for p in e.get("platforms", [])]
+    platform_counts = Counter(all_platforms)
+    top_platform = platform_counts.most_common(1)[0][0] if platform_counts else None
+
+    recent = sorted(log, key=lambda e: e.get("timestamp", ""), reverse=True)[:5]
+
+    return {
+        "total_queries": len(log),
+        "queries_today": queries_today,
+        "most_cited_issue": most_cited,
+        "top_platform": top_platform,
+        "recent_queries": [
+            {"query": e["query"], "timestamp": e["timestamp"], "sources_count": e["sources_count"]}
+            for e in recent
+        ],
     }
 
 

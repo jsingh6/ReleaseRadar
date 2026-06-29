@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import AnalyticsSection from "./AnalyticsSection";
 
 const API_BASE = "https://releaseradar-production-9651.up.railway.app";
 
@@ -160,6 +161,8 @@ export default function ReleaseRadar() {
             />
           </div>
         )}
+
+        <AnalyticsSection apiBase={API_BASE} />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20 }}>
 
