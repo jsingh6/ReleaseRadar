@@ -166,30 +166,94 @@ def _infer_platform(item: dict) -> str:
     return "iOS, Android"
 
 
-def fetch_github_releases(owner: str, repo: str, months: int = 3) -> list[dict]:
-    """Fetch real releases from GitHub for the last N months."""
-    url = f"https://api.github.com/repos/{owner}/{repo}/releases"
-    cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
-    prefix = "FL" if repo == "flutter" else "RN"
+def _extract_flutter_changelog_section(changelog: str, version: str) -> str:
+    """Extract the changelog bullet points for a specific Flutter version."""
+    import re
+    # Matches both `## [3.44.4](url)` and `### [3.44.3](url)` patterns
+    pattern = rf'#{{2,3}} \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n#{{2,3}} |\Z)'
+    m = re.search(pattern, changelog, re.DOTALL)
+    if not m:
+        return ""
+    return m.group(1).strip()[:1200]
 
-    response = requests.get(url, headers=HEADERS, params={"per_page": 50})
-    if response.status_code != 200:
-        print(f"❌ Error fetching releases for {owner}/{repo}: {response.status_code}")
+
+def fetch_flutter_releases(months: int = 3) -> list[dict]:
+    """Flutter doesn't use GitHub Releases for stable builds.
+    Uses the official Flutter infra API + CHANGELOG.md."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
+
+    # 1. Get stable versions from Flutter's official release manifest
+    infra_url = "https://storage.googleapis.com/flutter_infra_release/releases/releases_macos.json"
+    r = requests.get(infra_url)
+    if r.status_code != 200:
+        print(f"❌ Flutter infra API error: {r.status_code}")
         return []
 
-    raw = [r for r in response.json() if not r.get("draft") and not r.get("prerelease")]
+    all_stable = [rel for rel in r.json().get("releases", [])
+                  if rel.get("channel") == "stable"]
+    seen = set()
+    deduped = []
+    for rel in all_stable:
+        v = rel["version"]
+        if v not in seen:
+            seen.add(v)
+            deduped.append(rel)
 
-    # Filter to last N months; fall back to latest 10 if none found in window
-    recent = [r for r in raw if datetime.fromisoformat(r["published_at"].replace("Z", "+00:00")) >= cutoff]
-    items = recent if recent else raw[:10]
+    recent = [s for s in deduped
+              if datetime.fromisoformat(s["release_date"].replace("Z", "+00:00")) >= cutoff]
+    items = recent if recent else deduped[:10]
+
+    # 2. Fetch CHANGELOG.md once for release notes
+    changelog = ""
+    rc = requests.get("https://raw.githubusercontent.com/flutter/flutter/stable/CHANGELOG.md")
+    if rc.status_code == 200:
+        changelog = rc.text
+
+    # 3. Build release objects
+    releases = []
+    for item in items:
+        version = item["version"]
+        notes = _extract_flutter_changelog_section(changelog, version)
+        releases.append({
+            "version": f"FL-{version}",
+            "release_date": item["release_date"][:10],
+            "platform": "iOS, Android",
+            "repo": "flutter/flutter",
+            "highlights": [],
+            "changes": notes or f"Flutter {version} stable release. No detailed changelog available.",
+            "known_issues": [],
+            "source": "release_notes",
+        })
+
+    label = f"last {months} months" if recent else f"latest {len(items)} (infra fallback)"
+    print(f"  ✓ Fetched {len(releases)} Flutter stable releases ({label})")
+    return releases
+
+
+def fetch_rn_releases(months: int = 3) -> list[dict]:
+    """React Native uses GitHub Releases — fetch them directly."""
+    url = "https://api.github.com/repos/facebook/react-native/releases"
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
+
+    all_raw = []
+    response = requests.get(url, headers=HEADERS, params={"per_page": 50})
+    if response.status_code != 200:
+        print(f"❌ Error fetching RN releases: {response.status_code}")
+        return []
+    all_raw = [r for r in response.json()
+               if not r.get("draft") and not r.get("prerelease")]
+
+    recent = [r for r in all_raw
+              if datetime.fromisoformat(r["published_at"].replace("Z", "+00:00")) >= cutoff]
+    items = recent if recent else all_raw[:10]
 
     releases = []
     for item in items:
         releases.append({
-            "version": f"{prefix}-{item['tag_name']}",
+            "version": f"RN-{item['tag_name']}",
             "release_date": item["published_at"][:10],
             "platform": "iOS, Android",
-            "repo": f"{owner}/{repo}",
+            "repo": "facebook/react-native",
             "highlights": [],
             "changes": (item.get("body") or "No release notes provided.")[:1200],
             "known_issues": [],
@@ -197,7 +261,7 @@ def fetch_github_releases(owner: str, repo: str, months: int = 3) -> list[dict]:
         })
 
     label = f"last {months} months" if recent else "latest (no recent releases found)"
-    print(f"  ✓ Fetched {len(releases)} releases from {owner}/{repo} ({label})")
+    print(f"  ✓ Fetched {len(releases)} React Native releases ({label})")
     time.sleep(0.5)
     return releases
 
@@ -326,8 +390,8 @@ def main():
     print(f"\n✅ Saved {len(all_issues)} issues → {issues_path}")
 
     all_releases = []
-    all_releases.extend(fetch_github_releases("flutter", "flutter", months=3))
-    all_releases.extend(fetch_github_releases("facebook", "react-native", months=3))
+    all_releases.extend(fetch_flutter_releases(months=3))
+    all_releases.extend(fetch_rn_releases(months=3))
 
     if not all_releases:
         print("⚠️  No releases fetched — falling back to fixtures")
