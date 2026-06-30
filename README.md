@@ -34,22 +34,38 @@ GitHub Issues + Release Notes
         ↓
 sentence-transformers (all-MiniLM-L6-v2) → 384-dim embeddings
         ↓
-ChromaDB vector store
+  ┌─────────────────────────────────────┐
+  │  Query entity extraction            │
+  │  (platform / status / priority)     │
+  │         ↓                           │
+  │  ChromaDB vector search             │  ← semantic matches
+  │  BM25 keyword search                │  ← exact term matches
+  │         ↓                           │
+  │  Reciprocal Rank Fusion (RRF)       │  ← merged ranking
+  └─────────────────────────────────────┘
         ↓
-similarity search (top-k=6)
+Claude Sonnet — grounded generation + structured insight
         ↓
-Claude Sonnet — grounded generation with source citation
-        ↓
-React frontend
+React frontend (InsightCard + narrative)
 ```
+
+**Why hybrid?** Pure vector search misses exact identifiers — version numbers like `3.22`, component names like `Impeller` or `Hermes`, issue IDs. BM25 catches those. RRF merges both rankings without needing score normalization.
+
+**Why entity extraction?** A query like "open iOS bugs" should filter `platform=iOS, status=Open` before retrieval, not after — so cosine similarity only runs against the relevant candidate set.
+
+**Why structured output?** Claude emits a typed insight block (severity, affected versions/platforms, pattern, recommendation, confidence) alongside the narrative. The frontend renders it as a severity-coded card — P1 red, P2 orange, P3 yellow — so teams get a scannable signal, not just a wall of text.
 
 ## Stack
 
 | Layer | Technology |
 |---|---|
 | Embeddings | sentence-transformers all-MiniLM-L6-v2 |
-| Vector Store | ChromaDB |
-| LLM | Anthropic Claude Sonnet |
+| Keyword search | BM25 (rank-bm25) |
+| Vector store | ChromaDB |
+| Retrieval | Hybrid BM25 + vector, fused with RRF |
+| Pre-filtering | Entity extraction → ChromaDB where-clause |
+| LLM | Anthropic Claude Sonnet 4.6 |
+| Output | Structured insight JSON + streaming narrative |
 | Backend | FastAPI + Python |
 | Frontend | React + Vite |
 | Data | GitHub Issues API (flutter/flutter, facebook/react-native) |
@@ -77,7 +93,9 @@ Fetch real data and run:
 
 Frontend:
 
-    cd frontend && npm install && npm run dev
+    cd frontend && npm install
+    echo "VITE_API_BASE=http://localhost:8000" > .env.local
+    npm run dev
 
 ---
 
@@ -111,9 +129,13 @@ Each connector normalizes to the same dict shape — id, summary, description, p
 
 ---
 
-## Architecture Decision
+## Architecture Decisions
 
-ReleaseRadar deliberately avoids LangChain in production. The pipeline uses raw sentence-transformers + chromadb for two reasons: fewer transitive dependencies, and full visibility into what the embedding and retrieval layers are doing. LangChain is great for prototyping — when you need production stability and debuggability, owning the pipeline matters.
+**No LangChain.** The pipeline uses raw sentence-transformers + chromadb directly. Fewer transitive dependencies, full visibility into what each retrieval layer is doing, and no framework magic to debug when scores look wrong.
+
+**Hybrid retrieval over pure vector search.** This domain has a lot of exact identifiers — version strings, component names, issue IDs. Semantic embeddings are weak at exact-match retrieval. Adding BM25 alongside the vector index and fusing with RRF costs one extra dependency and ~5ms, and eliminates an entire class of missed results.
+
+**Structured output via prompt, not tool-use.** Claude is asked to emit `<insight>JSON</insight>` at the end of every response. The backend strips and parses it; the frontend renders it as a typed card. This keeps streaming intact (one LLM call, no round-trips) while giving the UI structured data to work with.
 
 ---
 
@@ -121,11 +143,11 @@ ReleaseRadar deliberately avoids LangChain in production. The pipeline uses raw 
 
 Contributions welcome. Open issues for ideas:
 
-- Jira connector
-- Firebase Crashlytics connector
-- Splunk connector
+- Jira / Firebase Crashlytics / Splunk connectors
+- Cross-encoder re-ranking (post-RRF, before Claude)
 - Rate limiting on /query endpoint
 - Persistent ChromaDB (currently in-memory on Railway)
+- Scheduled data refresh (currently fetched manually via fetch_data.py)
 
 ---
 
