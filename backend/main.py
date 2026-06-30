@@ -1,17 +1,13 @@
 """
-ReleaseRadar — FastAPI Backend
-Reads GitHub Issues + release notes, builds a ChromaDB vector store, serves a RAG query endpoint.
-
-KEY LEARNING: This file shows BOTH approaches side by side:
-  - WITH LangChain (what we actually use)
-  - WITHOUT LangChain (raw chromadb + sentence_transformers)
-Search for "# ── WITHOUT LANGCHAIN" to see the equivalent raw code.
+ReleaseRadar — FastAPI Backend (v3.0)
+Hybrid BM25 + vector retrieval, metadata pre-filtering, structured insight output.
 """
+from __future__ import annotations
 
 import json
 import os
+import re as _re
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -21,6 +17,9 @@ from pydantic import BaseModel
 
 import anthropic
 from posthog import Posthog
+from sentence_transformers import SentenceTransformer
+from rank_bm25 import BM25Okapi
+import chromadb
 
 load_dotenv()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
@@ -35,71 +34,10 @@ else:
     print("📊 PostHog disabled (no POSTHOG_API_KEY)")
 
 POSTHOG_PERSONAL_KEY = os.getenv("POSTHOG_PERSONAL_API_KEY", "")
-_posthog_project_id: str | None = os.getenv("POSTHOG_PROJECT_ID", None)  # set in Railway env
+_posthog_project_id: str | None = os.getenv("POSTHOG_PROJECT_ID", None)
 DATA_DIR = Path(__file__).parent / "data"
-CHROMA_DIR = "/tmp/releaseradar_chroma"
 
-# ──────────────────────────────────────────────────────────────────────────────
-# APPROACH A — WITH LANGCHAIN (what we use)
-# LangChain wraps sentence-transformers + chromadb behind a unified interface.
-# You call from_texts() and similarity_search_with_score() — it handles the rest.
-# ──────────────────────────────────────────────────────────────────────────────
-from sentence_transformers import SentenceTransformer
-import chromadb
-# ──────────────────────────────────────────────────────────────────────────────
-# APPROACH B — WITHOUT LANGCHAIN (equivalent raw code, not used but shown)
-# Uncomment this block and replace the LangChain calls below to switch modes.
-# ──────────────────────────────────────────────────────────────────────────────
-#
-# from sentence_transformers import SentenceTransformer
-# import chromadb
-# import numpy as np
-#
-# _raw_model = None      # SentenceTransformer instance
-# _raw_collection = None # chromadb Collection instance
-#
-# def build_vectorstore_raw(texts: list[str], metadatas: list[dict]):
-#     global _raw_model, _raw_collection
-#
-#     # Step 1: Load embedding model
-#     _raw_model = SentenceTransformer("all-MiniLM-L6-v2")
-#
-#     # Step 2: Embed all chunks — returns numpy array shape (N, 384)
-#     vectors = _raw_model.encode(texts, show_progress_bar=True)
-#
-#     # Step 3: Create ChromaDB collection
-#     client = chromadb.PersistentClient(path=CHROMA_DIR)
-#     client.delete_collection("releaseradar")  # fresh rebuild
-#     _raw_collection = client.create_collection(
-#         "releaseradar",
-#         metadata={"hnsw:space": "cosine"}  # use cosine similarity
-#     )
-#
-#     # Step 4: Add — ids must be unique strings
-#     _raw_collection.add(
-#         ids=[str(i) for i in range(len(texts))],
-#         documents=texts,
-#         embeddings=vectors.tolist(),  # chromadb wants list, not numpy
-#         metadatas=metadatas
-#     )
-#     print(f"✅ Raw: indexed {len(texts)} chunks")
-#
-# def search_raw(query: str, k: int = 6):
-#     query_vector = _raw_model.encode([query]).tolist()
-#     results = _raw_collection.query(
-#         query_embeddings=query_vector,
-#         n_results=k,
-#         include=["documents", "metadatas", "distances"]
-#     )
-#     # results["documents"] is a list-of-lists (one per query)
-#     docs = results["documents"][0]
-#     metas = results["metadatas"][0]
-#     distances = results["distances"][0]
-#     return list(zip(docs, metas, distances))
-#
-# ──────────────────────────────────────────────────────────────────────────────
-
-app = FastAPI(title="ReleaseRadar API", version="2.0.0")
+app = FastAPI(title="ReleaseRadar API", version="3.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -108,22 +46,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_model = None
+_model: SentenceTransformer = None
 _collection = None
+_bm25: BM25Okapi = None
+_all_texts: list[str] = []
+_all_metas: list[dict] = []
+
 
 # ── Text conversion ──────────────────────────────────────────────────────────
-# This is the most important tuning surface in a RAG system.
-# What you include here determines what the embedding model can "see".
-# More context per document = better retrieval, but larger chunks.
 
 def issue_to_text(issue: dict) -> str:
-    """
-    Convert a GitHub issue dict to a single text string for embedding.
-    
-    WHY: The embedding model only sees text. Everything you want to be searchable
-    must be in this string. IDs, platform, component, status — all of it.
-    Fields that stay in metadata (for filtering) don't need to be here.
-    """
     labels = ", ".join(issue.get("labels", []))
     resolved = f"Resolved: {issue['resolved']}" if issue.get("resolved") else "Status: Open"
     fix = issue.get("fix_description", "")
@@ -149,13 +81,10 @@ def release_to_text(release: dict) -> str:
     )
 
 
-# ── Vector store build ───────────────────────────────────────────────────────
-
-_model: SentenceTransformer = None
-_collection = None
+# ── Vector store + BM25 index ────────────────────────────────────────────────
 
 def build_vectorstore():
-    global _model, _collection
+    global _model, _collection, _bm25, _all_texts, _all_metas
 
     issues_path = DATA_DIR / "github_issues.json"
     releases_path = DATA_DIR / "release_notes.json"
@@ -188,6 +117,9 @@ def build_vectorstore():
         print("⚠️  No data to index.")
         return
 
+    _all_texts = texts
+    _all_metas = metadatas
+
     print("🧠 Loading embedding model...")
     _model = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -196,23 +128,168 @@ def build_vectorstore():
 
     client = chromadb.Client()
     _collection = client.get_or_create_collection("releaseradar")
+    # IDs are positional strings ("0", "1", ...) — used to look back into _all_texts
     _collection.add(
         ids=[str(i) for i in range(len(texts))],
         documents=texts,
         embeddings=vectors.tolist(),
         metadatas=metadatas,
     )
-    print(f"✅ Vector store ready: {len(texts)} documents indexed")
+
+    print("🔤 Building BM25 index...")
+    _bm25 = BM25Okapi([t.lower().split() for t in texts])
+
+    print(f"✅ Ready: {len(texts)} documents (vector + BM25)")
 
 
 @app.on_event("startup")
 async def startup():
-    """
-    FastAPI startup event — runs once when the server starts.
-    We build the vector store here so it's ready before any request arrives.
-    The _vectorstore global persists in memory for the server's lifetime.
-    """
     build_vectorstore()
+
+
+# ── Query entity extraction ──────────────────────────────────────────────────
+
+def extract_query_filters(query: str) -> dict:
+    """
+    Pull platform / status / priority / source signals from natural language.
+    These become ChromaDB where-clause filters, applied before vector search
+    so we're not burning retrieval budget on irrelevant documents.
+    """
+    q = query.lower()
+    filters: dict = {}
+
+    if "android" in q and not any(x in q for x in ["ios", "iphone", "ipad"]):
+        filters["platform"] = "Android"
+    elif any(x in q for x in ["ios", "iphone", "ipad"]) and "android" not in q:
+        filters["platform"] = "iOS"
+
+    if any(x in q for x in ["still open", "unresolved", "not fixed", "still broken", "open issue", "open bug"]):
+        filters["status"] = "Open"
+    elif any(x in q for x in [" fixed", "resolved", "closed", "patched"]):
+        filters["status"] = "Done"
+
+    if any(x in q for x in ["p1", "critical", "blocker"]):
+        filters["priority"] = "P1"
+    elif any(x in q for x in ["p2", "high priority"]):
+        filters["priority"] = "P2"
+
+    if any(x in q for x in ["release", "changelog", "what changed", "what's new", "upgrade to", "version notes"]):
+        filters["source"] = "release_notes"
+    elif any(x in q for x in ["crash report", "open issue", "open bug", "filed issue"]):
+        filters["source"] = "github_issues"
+
+    return filters
+
+
+def _build_chroma_where(filters: dict) -> dict | None:
+    clauses = []
+
+    if "platform" in filters:
+        # "iOS, Android" is the combined platform value — include it for both platform queries
+        clauses.append({"platform": {"$in": [filters["platform"], "iOS, Android"]}})
+
+    if "status" in filters:
+        clauses.append({"status": {"$eq": filters["status"]}})
+
+    if "priority" in filters:
+        clauses.append({"priority": {"$eq": filters["priority"]}})
+
+    if "source" in filters:
+        clauses.append({"source": {"$eq": filters["source"]}})
+
+    if not clauses:
+        return None
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$and": clauses}
+
+
+def _matches_filters(meta: dict, filters: dict) -> bool:
+    for key, val in filters.items():
+        if key == "platform":
+            if val not in meta.get("platform", ""):
+                return False
+        elif key == "status":
+            if meta.get("status", "").lower() != val.lower():
+                return False
+        elif key == "priority":
+            if meta.get("priority", "") != val:
+                return False
+        elif key == "source":
+            if meta.get("source", "") != val:
+                return False
+    return True
+
+
+# ── Hybrid retrieval (BM25 + vector, RRF fusion) ─────────────────────────────
+
+def _rrf_fuse(bm25_ranking: list[int], vector_ranking: list[int], k: int = 60) -> list[int]:
+    """
+    Reciprocal Rank Fusion: each doc scores 1/(k + rank) from each ranker.
+    k=60 is the standard constant — dampens high-rank bonuses without losing signal.
+    """
+    scores: dict[int, float] = {}
+    for rank, idx in enumerate(bm25_ranking):
+        scores[idx] = scores.get(idx, 0.0) + 1.0 / (k + rank + 1)
+    for rank, idx in enumerate(vector_ranking):
+        scores[idx] = scores.get(idx, 0.0) + 1.0 / (k + rank + 1)
+    return [idx for idx, _ in sorted(scores.items(), key=lambda x: x[1], reverse=True)]
+
+
+def hybrid_search(query: str, top_k: int, filters: dict) -> tuple[list[str], list[dict]]:
+    """
+    BM25 catches exact term matches (version numbers, component names like Impeller/Hermes).
+    Vector search catches semantic matches (paraphrases, related concepts).
+    RRF merges both rankings without needing to tune score thresholds.
+    """
+    fetch_k = min(top_k * 3, len(_all_texts))
+    chroma_where = _build_chroma_where(filters)
+
+    # Vector search
+    query_vector = _model.encode([query]).tolist()
+    kwargs: dict = {
+        "query_embeddings": query_vector,
+        "n_results": fetch_k,
+        "include": ["documents", "metadatas", "distances"],
+    }
+    if chroma_where:
+        kwargs["where"] = chroma_where
+
+    try:
+        vector_results = _collection.query(**kwargs)
+    except Exception:
+        # Filter may be too restrictive (e.g. zero matching docs) — retry without
+        kwargs.pop("where", None)
+        kwargs["n_results"] = min(fetch_k, _collection.count())
+        vector_results = _collection.query(**kwargs)
+
+    # ChromaDB IDs are positional strings ("0", "1", ...) matching _all_texts indices
+    vector_ranking = [int(id_) for id_ in vector_results["ids"][0]]
+
+    # BM25 search — full corpus, then apply metadata filter
+    tokens = query.lower().split()
+    bm25_scores = _bm25.get_scores(tokens)
+    bm25_ranking = sorted(range(len(_all_texts)), key=lambda i: bm25_scores[i], reverse=True)
+    if filters:
+        bm25_ranking = [i for i in bm25_ranking if _matches_filters(_all_metas[i], filters)]
+    bm25_ranking = bm25_ranking[:fetch_k]
+
+    fused = _rrf_fuse(bm25_ranking, vector_ranking)[:top_k]
+    return [_all_texts[i] for i in fused], [_all_metas[i] for i in fused]
+
+
+# ── Structured insight extraction ────────────────────────────────────────────
+
+def _extract_insight(text: str) -> tuple[str, dict | None]:
+    """Strip <insight>JSON</insight> from the answer and parse it separately."""
+    m = _re.search(r'<insight>(.*?)</insight>', text, _re.DOTALL)
+    if not m:
+        return text, None
+    clean = (text[:m.start()].rstrip() + text[m.end():]).strip()
+    try:
+        return clean, json.loads(m.group(1).strip())
+    except json.JSONDecodeError:
+        return text, None
 
 
 # ── Request / Response models ────────────────────────────────────────────────
@@ -231,33 +308,38 @@ class SourceDoc(BaseModel):
     snippet: str
 
 
-class QueryResponse(BaseModel):
-    answer: str
-    sources: list[SourceDoc]
-    query: str
+# ── System prompt ────────────────────────────────────────────────────────────
+
+SYSTEM_PROMPT = """You are ReleaseRadar, an AI assistant for mobile engineering teams.
+You analyze GitHub Issues and release notes from Flutter and React Native to help teams understand crash patterns, regressions, and release quality.
+
+Rules:
+- Only use information from the context provided. Never invent issue IDs or versions.
+- Always cite issue IDs (e.g. GH-FL-1234) and release versions (e.g. FL-3.22.0) when referencing specific items.
+- Distinguish between iOS and Android when platform is relevant.
+- If context is insufficient, say so clearly rather than guessing.
+
+After your analysis, append this block on its own with no surrounding text:
+<insight>{"severity":"P1|P2|P3|Info","affected_versions":["FL-x.x","RN-x.x"],"affected_platforms":["iOS","Android"],"pattern":"one concise sentence describing the core pattern or finding","recommendation":"concrete action the engineering team should take","confidence":"High|Medium|Low"}</insight>
+
+Severity: P1=crashes or data loss, P2=regressions impacting UX, P3=minor bugs, Info=general question.
+Confidence: High=3+ sources corroborate, Medium=1-2 direct sources, Low=inferred from indirect evidence.
+Only include versions and platforms actually mentioned in the context."""
 
 
 # ── RAG query endpoint ───────────────────────────────────────────────────────
 
 @app.post("/query")
 async def query(req: QueryRequest):
-    if not _collection:
-        raise HTTPException(status_code=503, detail="Vector store not ready. Run fetch_data.py first.")
+    if not _collection or not _bm25:
+        raise HTTPException(status_code=503, detail="Vector store not ready.")
 
-    # ── Step 1: Retrieve ────────────────────────────────────────────────────
-    query_vector = _model.encode([req.query]).tolist()
-    results = _collection.query(
-        query_embeddings=query_vector,
-        n_results=req.top_k,
-        include=["documents", "metadatas", "distances"]
-    )
-    docs = results["documents"][0]
-    metas = results["metadatas"][0]
+    filters = extract_query_filters(req.query)
+    docs, metas = hybrid_search(req.query, req.top_k, filters)
 
-    # ── Step 2: Assemble context ────────────────────────────────────────────
     context_parts = []
     sources = []
-    seen_ids = set()
+    seen_ids: set[str] = set()
 
     for doc, meta in zip(docs, metas):
         context_parts.append(
@@ -276,17 +358,6 @@ async def query(req: QueryRequest):
             ))
 
     context = "\n\n---\n\n".join(context_parts)
-
-    system_prompt = """You are ReleaseRadar, an AI assistant for mobile engineering teams.
-You analyze GitHub Issues and release notes from open source mobile projects (Flutter, React Native)
-to help teams understand crash patterns, regressions, and release quality.
-
-Rules:
-- Only use information from the context provided. Never invent issue IDs.
-- Always cite issue IDs (e.g. GH-FL-1234) and release versions (e.g. RM-2024.3.0) when referencing specific items.
-- Distinguish between iOS and Android when the platform is relevant.
-- If the context doesn't contain enough information, say so clearly rather than guessing."""
-
     async_client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     sources_payload = [s.model_dump() for s in sources]
 
@@ -294,13 +365,12 @@ Rules:
         from datetime import datetime, timezone
         full_answer = ""
 
-        # Initial padding flushes Railway's proxy buffer immediately
         yield ": ping\n\n"
 
         async with async_client.messages.stream(
             model="claude-sonnet-4-6",
-            max_tokens=1024,
-            system=system_prompt,
+            max_tokens=1200,
+            system=SYSTEM_PROMPT,
             messages=[{
                 "role": "user",
                 "content": f"Context:\n\n{context}\n\n---\n\nQuestion: {req.query}"
@@ -308,7 +378,12 @@ Rules:
         ) as stream:
             async for text in stream.text_stream:
                 full_answer += text
-                yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+                # Stop streaming display at <insight> — the tag is parsed separately
+                display_cutoff = full_answer.find("<insight>")
+                display = full_answer if display_cutoff < 0 else full_answer[:display_cutoff]
+                yield f"data: {json.dumps({'type': 'token', 'text': text, 'display': display})}\n\n"
+
+        clean_answer, insight = _extract_insight(full_answer)
 
         ph.capture(
             distinct_id="releaseradar-user",
@@ -319,6 +394,10 @@ Rules:
                 "source_ids": [s.id for s in sources],
                 "repos": list({s.repo for s in sources}),
                 "platforms": list({s.platform for s in sources}),
+                "filters_applied": filters or None,
+                "retrieval": "hybrid_bm25_vector_rrf",
+                "insight_severity": insight.get("severity") if insight else None,
+                "insight_confidence": insight.get("confidence") if insight else None,
             }
         )
 
@@ -331,10 +410,11 @@ Rules:
             "source_ids": [s.id for s in sources],
             "platforms": list({s.platform for s in sources}),
             "repos": list({s.repo for s in sources}),
+            "filters": filters or None,
         })
         log_path.write_text(json.dumps(log))
 
-        yield f"data: {json.dumps({'type': 'done', 'sources': sources_payload, 'query': req.query})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'sources': sources_payload, 'query': req.query, 'answer': clean_answer, 'insight': insight, 'filters': filters or None})}\n\n"
 
     return StreamingResponse(
         generate(),
@@ -359,14 +439,14 @@ async def stats():
     return {
         "issues": {"total": len(issues), "p1": p1, "open": open_count},
         "releases": {"total": len(releases), "latest": releases[-1]["version"] if releases else "N/A"},
-        "vectorstore_ready": _collection is not None
+        "vectorstore_ready": _collection is not None,
+        "retrieval": "hybrid_bm25_vector",
     }
 
 
 # ── Analytics endpoint ───────────────────────────────────────────────────────
 
 def _fetch_posthog_events_sync() -> list[dict]:
-    """Fetch all query_answered events from PostHog using requests (sync)."""
     global _posthog_project_id
     import requests as req
     headers = {"Authorization": f"Bearer {POSTHOG_PERSONAL_KEY}"}
@@ -427,7 +507,6 @@ async def analytics():
         except Exception as exc:
             print(f"⚠️  PostHog analytics fetch failed: {type(exc).__name__}: {exc!r} — falling back to local log")
 
-    # Fallback: local query_log.json (used when no personal key or PostHog unreachable)
     from collections import Counter
     log_path = DATA_DIR / "query_log.json"
     log = json.loads(log_path.read_text()) if log_path.exists() else []
@@ -454,11 +533,14 @@ async def analytics():
 
 @app.get("/health")
 async def health():
-    """Always check this first when debugging. If this fails, nothing else will work."""
-    return {"status": "ok", "vectorstore_ready": _collection is not None}
+    return {
+        "status": "ok",
+        "vectorstore_ready": _collection is not None,
+        "bm25_ready": _bm25 is not None,
+        "doc_count": len(_all_texts),
+    }
+
 
 if __name__ == "__main__":
     import uvicorn
-    # reload=True means the server restarts when you save main.py
-    # Use this during development. Remove in production.
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
